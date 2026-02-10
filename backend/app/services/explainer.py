@@ -52,8 +52,6 @@ def _get_tier(score: float):
 
 
 def generate_explanation(
-    resume_text: str,
-    job_description: str,
     score: float,
     matched_keywords: List[str],
     job_keywords: Optional[List[str]] = None,

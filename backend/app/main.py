@@ -13,10 +13,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.models.schemas import (
     AnalysisResponse,
-    ErrorResponse,
     HealthCheckResponse,
     create_success_response,
-    create_error_response,
 )
 from app.services.pdf_parser import extract_text_from_pdf
 from app.services.nlp_matcher import calculate_match_score
@@ -125,7 +123,6 @@ async def health_check():
 @app.post(
     "/analyze",
     response_model=AnalysisResponse,
-    responses={400: {"model": ErrorResponse}, 500: {"model": ErrorResponse}},
 )
 async def analyze_resume(
     resume: UploadFile = File(..., description="Resume PDF file"),
@@ -158,8 +155,6 @@ async def analyze_resume(
 
         # Step 3: Generate human-readable explanation
         explanation = generate_explanation(
-            resume_text=resume_text,
-            job_description=job_description,
             score=score_data["score"],
             matched_keywords=score_data.get("matched_keywords", []),
             job_keywords=score_data.get("job_keywords", []),

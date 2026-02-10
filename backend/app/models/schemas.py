@@ -4,34 +4,10 @@ Pydantic v2 schemas for the AI Resume Screener API.
 Defines request/response models and helper constructors.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 
-from pydantic import BaseModel, Field, field_validator
-
-
-# ── Request Schemas ──────────────────────────────────────────────────────────
-
-class JobDescriptionRequest(BaseModel):
-    """Validated job description input."""
-
-    job_description: str = Field(
-        ...,
-        min_length=10,
-        max_length=10_000,
-        description="Job description text to match against the resume",
-        examples=["We are looking for a Senior Python Developer with 5+ years of experience in FastAPI, Docker, and AWS."],
-    )
-
-    @field_validator("job_description")
-    @classmethod
-    def validate_content(cls, v: str) -> str:
-        v = v.strip()
-        if not v:
-            raise ValueError("Job description cannot be empty or whitespace only")
-        if len(v.split()) < 5:
-            raise ValueError("Job description must have at least 5 words")
-        return v
+from pydantic import BaseModel, Field
 
 
 # ── Response Schemas ─────────────────────────────────────────────────────────
@@ -84,15 +60,6 @@ class HealthCheckResponse(BaseModel):
 
 # ── Helper Constructors ──────────────────────────────────────────────────────
 
-def create_error_response(
-    error_message: str,
-    error_code: Optional[str] = None,
-    details: Optional[dict] = None,
-) -> ErrorResponse:
-    """Build a standardized error response."""
-    return ErrorResponse(success=False, error=error_message, error_code=error_code, details=details)
-
-
 def create_success_response(
     score: float,
     explanation: str,
@@ -116,6 +83,7 @@ def create_success_response(
         metadata=FileMetadata(
             filename=filename,
             file_size_kb=round(file_size_kb, 2),
+            upload_timestamp=datetime.now(timezone.utc),
         ),
         message="Analysis completed successfully",
     )

@@ -188,8 +188,8 @@ function displayResults(data) {
     document.getElementById("scoreLabel").textContent = tier.label;
     document.getElementById("scoreAssessment").textContent = tier.assessment;
 
-    // Explanation
-    document.getElementById("explanationContent").textContent = explanation;
+    // Explanation (convert markdown bold/newlines to HTML)
+    document.getElementById("explanationContent").innerHTML = renderMarkdown(explanation);
 
     // Keywords
     const keywordsList = document.getElementById("keywordsList");
@@ -278,4 +278,16 @@ function formatFileSize(bytes) {
     if (bytes < 1024) return bytes + " B";
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
     return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+}
+
+function renderMarkdown(text) {
+    // Sanitize HTML entities first to prevent XSS
+    const escaped = text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    // Convert **bold** to <strong>, newlines to <br>
+    return escaped
+        .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+        .replace(/\n/g, "<br>");
 }

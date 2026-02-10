@@ -6,8 +6,6 @@ from app.services.explainer import generate_explanation
 class TestGenerateExplanation:
     def _gen(self, score, matched=None, job_kw=None):
         return generate_explanation(
-            resume_text="sample resume",
-            job_description="sample jd",
             score=score,
             matched_keywords=matched or [],
             job_keywords=job_kw,

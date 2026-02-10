@@ -15,6 +15,7 @@ These are combined into a 0-100 score that maps to recruiter-friendly tiers.
 """
 
 import logging
+import re
 from collections import Counter
 from typing import Dict, List
 
@@ -140,11 +141,14 @@ def _score_tfidf(
     # Find matched keywords (non-zero in both vectors)
     matched_keywords = _find_matched_keywords(vectorizer, tfidf_matrix)
 
-    # Signal 2: keyword coverage
+    # Signal 2: keyword coverage (word-boundary match to avoid false positives)
     job_keywords = extract_keywords(job_description_raw, top_n=15)
     resume_lower = resume_processed.lower()
     if job_keywords:
-        hits = sum(1 for kw in job_keywords if kw.lower() in resume_lower)
+        hits = sum(
+            1 for kw in job_keywords
+            if re.search(r'\b' + re.escape(kw.lower()) + r'\b', resume_lower)
+        )
         keyword_coverage = hits / len(job_keywords)
     else:
         keyword_coverage = 0.0

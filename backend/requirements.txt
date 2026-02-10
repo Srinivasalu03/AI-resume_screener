@@ -13,7 +13,3 @@ nltk==3.8.1
 
 # Data Validation
 pydantic==2.5.0
-
-# Testing
-pytest==7.4.4
-httpx==0.25.2
