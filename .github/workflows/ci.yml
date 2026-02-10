@@ -49,6 +49,18 @@ jobs:
       - name: Verify container starts
         run: |
           docker run -d --name test-app -p 8000:8000 ai-resume-screener
-          sleep 10
-          curl -f http://localhost:8000/health || (docker logs test-app && exit 1)
-          docker stop test-app
+          echo "Waiting for container to start..."
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8000/health > /dev/null 2>&1; then
+              echo "Health check passed on attempt $i"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Container failed to start. Logs:"
+          docker logs test-app
+          exit 1
+
+      - name: Stop test container
+        if: always()
+        run: docker stop test-app 2>/dev/null || true

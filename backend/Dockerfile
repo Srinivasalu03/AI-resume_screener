@@ -11,8 +11,9 @@ RUN apt-get update && \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Download NLTK data at build time so first request is fast
-RUN python -c "import nltk; nltk.download('punkt', quiet=True); nltk.download('stopwords', quiet=True)"
+# Download NLTK data to a shared location accessible by all users
+ENV NLTK_DATA=/usr/local/nltk_data
+RUN python -c "import nltk; nltk.download('punkt', download_dir='/usr/local/nltk_data', quiet=True); nltk.download('stopwords', download_dir='/usr/local/nltk_data', quiet=True)"
 
 # Copy application code
 COPY . .
@@ -27,7 +28,7 @@ USER appuser
 
 EXPOSE 8000
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
