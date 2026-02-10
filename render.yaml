@@ -1,0 +1,13 @@
+# Render Blueprint — deploy with one click from the Render dashboard
+# https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: ai-resume-screener
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHONUNBUFFERED
+        value: "1"

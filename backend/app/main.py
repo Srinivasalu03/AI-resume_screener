@@ -10,6 +10,8 @@ from pathlib import Path
 
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 from app.models.schemas import (
     AnalysisResponse,
@@ -98,9 +100,22 @@ def cleanup_file(file_path: Path) -> None:
 
 # ── Endpoints ────────────────────────────────────────────────────────────────
 
+# ── Frontend static files (production: serve frontend from backend) ──────────
+# In Docker: frontend is at /app/frontend/ (sibling to app/ package)
+# In local dev: frontend is at ../../frontend relative to this file
+
+_this_dir = Path(__file__).resolve().parent  # backend/app/
+FRONTEND_DIR = _this_dir.parent / "frontend"  # backend/frontend (Docker)
+if not FRONTEND_DIR.exists():
+    FRONTEND_DIR = _this_dir.parent.parent / "frontend"  # local dev: project_root/frontend
+
+
 @app.get("/")
 async def root():
-    """Root endpoint with API info."""
+    """Serve frontend index.html if available, otherwise return API info."""
+    index_file = FRONTEND_DIR / "index.html"
+    if index_file.exists():
+        return FileResponse(index_file)
     return {
         "message": "Welcome to AI Resume Screener API",
         "status": "running",
@@ -178,6 +193,14 @@ async def analyze_resume(
         raise HTTPException(status_code=500, detail=f"Analysis failed: {e}")
     finally:
         cleanup_file(file_path)
+
+
+# ── Mount frontend static assets (CSS, JS) ──────────────────────────────────
+# Must be after all API routes to avoid shadowing /analyze, /health, /docs
+
+if FRONTEND_DIR.exists():
+    app.mount("/css", StaticFiles(directory=FRONTEND_DIR / "css"), name="css")
+    app.mount("/js", StaticFiles(directory=FRONTEND_DIR / "js"), name="js")
 
 
 # ── Dev Server ───────────────────────────────────────────────────────────────

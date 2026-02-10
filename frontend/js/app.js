@@ -1,4 +1,6 @@
-const API_BASE = "http://localhost:8000";
+// In production, frontend is served by the same backend — use relative URLs.
+// For local dev with separate servers, set window.__API_BASE__ = "http://localhost:8000"
+const API_BASE = window.__API_BASE__ || "";
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
 // DOM Elements

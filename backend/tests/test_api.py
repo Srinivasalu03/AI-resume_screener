@@ -18,13 +18,17 @@ class TestRootEndpoint:
     def test_root_returns_200(self):
         resp = client.get("/")
         assert resp.status_code == 200
-        data = resp.json()
-        assert data["status"] == "running"
 
-    def test_root_lists_endpoints(self):
-        data = client.get("/").json()
-        assert "endpoints" in data
-        assert "analyze" in data["endpoints"]
+    def test_root_serves_html_or_json(self):
+        """Root returns frontend HTML when available, or JSON API info."""
+        resp = client.get("/")
+        content_type = resp.headers.get("content-type", "")
+        if "text/html" in content_type:
+            assert "AI Resume Screener" in resp.text
+        else:
+            data = resp.json()
+            assert data["status"] == "running"
+            assert "analyze" in data["endpoints"]
 
 
 class TestHealthEndpoint:
