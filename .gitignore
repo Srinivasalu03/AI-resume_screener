@@ -27,6 +27,10 @@ backend/uploads/
 # Environment
 .env
 .env.local
+.env.example
+
+# Claude Code
+.claude/
 
 # NLTK data
 nltk_data/
