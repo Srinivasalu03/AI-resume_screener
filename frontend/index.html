@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Resume Screener</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <div class="logo">
+                <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                    <polyline points="10 9 9 9 8 9"></polyline>
+                </svg>
+                <h1>AI Resume Screener</h1>
+            </div>
+            <p class="tagline">Match resumes to job descriptions using NLP-powered analysis</p>
+        </div>
+    </header>
+
+    <main class="container">
+        <!-- Upload Section -->
+        <section class="upload-section">
+            <form id="analyzeForm" class="analyze-form">
+                <div class="form-grid">
+                    <!-- Resume Upload -->
+                    <div class="form-card">
+                        <div class="card-header">
+                            <svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="17 8 12 3 7 8"></polyline>
+                                <line x1="12" y1="3" x2="12" y2="15"></line>
+                            </svg>
+                            <h2>Upload Resume</h2>
+                        </div>
+                        <div class="drop-zone" id="dropZone">
+                            <svg class="drop-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                <polyline points="14 2 14 8 20 8"></polyline>
+                            </svg>
+                            <p class="drop-text">Drag & drop your PDF here</p>
+                            <p class="drop-subtext">or click to browse</p>
+                            <p class="drop-limit">PDF only, max 5MB</p>
+                            <input type="file" id="resumeFile" name="resume" accept=".pdf" hidden>
+                        </div>
+                        <div class="file-info" id="fileInfo" hidden>
+                            <svg class="file-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                <polyline points="14 2 14 8 20 8"></polyline>
+                            </svg>
+                            <div class="file-details">
+                                <span class="file-name" id="fileName"></span>
+                                <span class="file-size" id="fileSize"></span>
+                            </div>
+                            <button type="button" class="file-remove" id="fileRemove" title="Remove file">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Job Description -->
+                    <div class="form-card">
+                        <div class="card-header">
+                            <svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+                                <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+                            </svg>
+                            <h2>Job Description</h2>
+                        </div>
+                        <textarea
+                            id="jobDescription"
+                            name="job_description"
+                            placeholder="Paste the job description here...&#10;&#10;Example: We are looking for a Senior Python Developer with experience in FastAPI, Docker, AWS, and machine learning. The ideal candidate should have 5+ years of experience..."
+                            rows="10"
+                        ></textarea>
+                        <div class="textarea-footer">
+                            <span class="char-count" id="charCount">0 characters</span>
+                            <span class="char-min">Min 10 characters</span>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-analyze" id="analyzeBtn" disabled>
+                    <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                    <span class="btn-text">Analyze Resume</span>
+                </button>
+            </form>
+        </section>
+
+        <!-- Loading State -->
+        <section class="loading-section" id="loadingSection" hidden>
+            <div class="loader">
+                <div class="loader-spinner"></div>
+                <p class="loader-text">Analyzing resume...</p>
+                <p class="loader-subtext">Extracting text and calculating match score</p>
+            </div>
+        </section>
+
+        <!-- Error State -->
+        <section class="error-section" id="errorSection" hidden>
+            <div class="error-card">
+                <svg class="error-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="15" y1="9" x2="9" y2="15"></line>
+                    <line x1="9" y1="9" x2="15" y2="15"></line>
+                </svg>
+                <h3>Analysis Failed</h3>
+                <p class="error-message" id="errorMessage"></p>
+                <button type="button" class="btn-retry" id="retryBtn">Try Again</button>
+            </div>
+        </section>
+
+        <!-- Results Section -->
+        <section class="results-section" id="resultsSection" hidden>
+            <h2 class="results-title">Analysis Results</h2>
+
+            <!-- Score Card -->
+            <div class="score-card" id="scoreCard">
+                <div class="score-ring-container">
+                    <svg class="score-ring" viewBox="0 0 120 120">
+                        <circle class="score-ring-bg" cx="60" cy="60" r="52" />
+                        <circle class="score-ring-fill" id="scoreRing" cx="60" cy="60" r="52" />
+                    </svg>
+                    <div class="score-value">
+                        <span class="score-number" id="scoreNumber">0</span>
+                        <span class="score-percent">%</span>
+                    </div>
+                </div>
+                <div class="score-details">
+                    <span class="score-label" id="scoreLabel">Match Score</span>
+                    <p class="score-assessment" id="scoreAssessment"></p>
+                </div>
+            </div>
+
+            <!-- Results Grid -->
+            <div class="results-grid">
+                <!-- Explanation -->
+                <div class="result-card explanation-card">
+                    <h3>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="16" x2="12" y2="12"></line>
+                            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                        </svg>
+                        Detailed Explanation
+                    </h3>
+                    <div class="explanation-content" id="explanationContent"></div>
+                </div>
+
+                <!-- Matched Keywords -->
+                <div class="result-card keywords-card">
+                    <h3>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                        </svg>
+                        Matched Keywords
+                    </h3>
+                    <div class="keywords-list" id="keywordsList"></div>
+                </div>
+
+                <!-- Metadata -->
+                <div class="result-card metadata-card">
+                    <h3>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 20h9"></path>
+                            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                        </svg>
+                        Analysis Details
+                    </h3>
+                    <div class="metadata-list">
+                        <div class="metadata-item">
+                            <span class="metadata-label">File</span>
+                            <span class="metadata-value" id="metaFilename">-</span>
+                        </div>
+                        <div class="metadata-item">
+                            <span class="metadata-label">File Size</span>
+                            <span class="metadata-value" id="metaFileSize">-</span>
+                        </div>
+                        <div class="metadata-item">
+                            <span class="metadata-label">Resume Words</span>
+                            <span class="metadata-value" id="metaResumeWords">-</span>
+                        </div>
+                        <div class="metadata-item">
+                            <span class="metadata-label">Job Desc Words</span>
+                            <span class="metadata-value" id="metaJobWords">-</span>
+                        </div>
+                        <div class="metadata-item">
+                            <span class="metadata-label">Analyzed At</span>
+                            <span class="metadata-value" id="metaTimestamp">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <button type="button" class="btn-new" id="newAnalysisBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="1 4 1 10 7 10"></polyline>
+                    <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+                </svg>
+                New Analysis
+            </button>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>AI Resume Screener &mdash; Powered by TF-IDF & Cosine Similarity</p>
+        </div>
+    </footer>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
