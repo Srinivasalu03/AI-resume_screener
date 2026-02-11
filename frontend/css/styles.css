@@ -670,6 +670,285 @@ textarea::placeholder {
     box-shadow: var(--shadow-md);
 }
 
+/* ===== Enhance Prompt ===== */
+.enhance-prompt-section {
+    padding: 20px 0;
+    animation: fadeIn 0.4s ease;
+}
+
+.enhance-prompt-card {
+    background: var(--white);
+    border-radius: var(--radius);
+    padding: 40px 32px;
+    box-shadow: var(--shadow-md);
+    border: 1px solid var(--gray-200);
+    text-align: center;
+    border-top: 4px solid var(--primary);
+}
+
+.enhance-icon-wrapper {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    background: var(--primary-light);
+    border-radius: 50%;
+    margin-bottom: 16px;
+}
+
+.enhance-icon {
+    width: 28px;
+    height: 28px;
+    color: var(--primary);
+}
+
+.enhance-prompt-card h3 {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--gray-800);
+    margin-bottom: 12px;
+}
+
+.enhance-description {
+    font-size: 0.95rem;
+    color: var(--gray-600);
+    line-height: 1.6;
+    max-width: 500px;
+    margin: 0 auto 24px;
+}
+
+.enhance-buttons {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.btn-enhance {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 32px;
+    background: var(--success);
+    color: var(--white);
+    border: none;
+    border-radius: var(--radius-sm);
+    font-family: inherit;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: var(--shadow);
+}
+
+.btn-enhance svg {
+    width: 20px;
+    height: 20px;
+}
+
+.btn-enhance:hover {
+    background: #047857;
+    box-shadow: var(--shadow-md);
+    transform: translateY(-1px);
+}
+
+.btn-enhance:active {
+    transform: translateY(0);
+}
+
+.btn-no-thanks {
+    display: inline-flex;
+    align-items: center;
+    padding: 14px 28px;
+    background: var(--white);
+    color: var(--gray-600);
+    border: 2px solid var(--gray-300);
+    border-radius: var(--radius-sm);
+    font-family: inherit;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-no-thanks:hover {
+    border-color: var(--gray-400);
+    color: var(--gray-700);
+    background: var(--gray-50);
+}
+
+/* ===== Score Comparison ===== */
+.comparison-section {
+    padding: 40px 0 20px;
+    animation: fadeIn 0.4s ease;
+}
+
+.score-comparison {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    background: var(--white);
+    border-radius: var(--radius);
+    padding: 32px;
+    box-shadow: var(--shadow-md);
+    border: 1px solid var(--gray-200);
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.score-compare-item {
+    text-align: center;
+    min-width: 120px;
+}
+
+.compare-label {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--gray-500);
+    margin-bottom: 8px;
+}
+
+.compare-score {
+    display: block;
+    font-size: 2.5rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.score-compare-item.original .compare-score {
+    color: var(--gray-500);
+}
+
+.score-compare-item.enhanced .compare-score {
+    color: var(--success);
+}
+
+.score-compare-arrow svg {
+    width: 32px;
+    height: 32px;
+    color: var(--gray-400);
+}
+
+.score-improvement {
+    text-align: center;
+    padding: 12px 20px;
+    border-radius: var(--radius-sm);
+    background: var(--gray-50);
+}
+
+.improvement-value {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--gray-500);
+}
+
+.score-improvement.positive .improvement-value {
+    color: var(--success);
+}
+
+.score-improvement.negative .improvement-value {
+    color: var(--danger);
+}
+
+.improvement-label {
+    display: block;
+    font-size: 0.7rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--gray-400);
+    margin-top: 2px;
+}
+
+/* ===== Improvements List ===== */
+.improvements-card {
+    grid-column: 1 / -1;
+}
+
+.improvements-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.improvements-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--gray-100);
+    font-size: 0.9rem;
+    color: var(--gray-700);
+    line-height: 1.5;
+}
+
+.improvements-list li:last-child {
+    border-bottom: none;
+}
+
+.improvements-list li::before {
+    content: "\2713";
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 22px;
+    background: var(--success-light);
+    color: var(--success);
+    border-radius: 50%;
+    font-size: 0.7rem;
+    font-weight: 700;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+/* ===== Download Button ===== */
+.download-section {
+    text-align: center;
+    margin: 24px 0;
+}
+
+.btn-download {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 32px;
+    background: var(--primary);
+    color: var(--white);
+    border: none;
+    border-radius: var(--radius-sm);
+    font-family: inherit;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: var(--shadow);
+    text-decoration: none;
+}
+
+.btn-download svg {
+    width: 20px;
+    height: 20px;
+}
+
+.btn-download:hover {
+    background: var(--primary-hover);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-1px);
+    color: var(--white);
+}
+
+.btn-download:active {
+    transform: translateY(0);
+}
+
 /* ===== Footer ===== */
 .footer {
     margin-top: auto;
@@ -714,6 +993,26 @@ textarea::placeholder {
 
     .btn-analyze {
         max-width: 100%;
+    }
+
+    .score-comparison {
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .score-compare-arrow svg {
+        transform: rotate(90deg);
+    }
+
+    .enhance-buttons {
+        flex-direction: column;
+    }
+
+    .btn-enhance,
+    .btn-no-thanks {
+        width: 100%;
+        max-width: 280px;
+        justify-content: center;
     }
 }
 

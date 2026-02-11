@@ -19,7 +19,7 @@ RUN python -c "import nltk; nltk.download('punkt', download_dir='/usr/local/nltk
 COPY . .
 
 # Create uploads directory and non-root user
-RUN mkdir -p uploads && \
+RUN mkdir -p uploads downloads && \
     addgroup --system appgroup && \
     adduser --system --ingroup appgroup appuser && \
     chown -R appuser:appgroup /app

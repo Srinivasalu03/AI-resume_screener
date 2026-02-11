@@ -214,6 +214,110 @@
                 New Analysis
             </button>
         </section>
+
+        <!-- Enhance Prompt Section -->
+        <section class="enhance-prompt-section" id="enhancePromptSection" hidden>
+            <div class="enhance-prompt-card">
+                <div class="enhance-icon-wrapper">
+                    <svg class="enhance-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 20h9"></path>
+                        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                    </svg>
+                </div>
+                <h3>Enhance Your Resume</h3>
+                <p class="enhance-description">Our AI can rewrite your resume to better match this job description by adding missing keywords, improving bullet phrasing, and restructuring content. <strong>No content will be fabricated.</strong></p>
+                <div class="enhance-buttons">
+                    <button type="button" class="btn-enhance" id="enhanceBtn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                        </svg>
+                        Enhance My Resume
+                    </button>
+                    <button type="button" class="btn-no-thanks" id="noThanksBtn">No Thanks</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Enhance Loading Section -->
+        <section class="loading-section" id="enhanceLoadingSection" hidden>
+            <div class="loader">
+                <div class="loader-spinner"></div>
+                <p class="loader-text">Enhancing resume...</p>
+                <p class="loader-subtext">Rewriting content and generating PDF</p>
+            </div>
+        </section>
+
+        <!-- Comparison Results Section -->
+        <section class="comparison-section" id="comparisonSection" hidden>
+            <h2 class="results-title">Enhancement Results</h2>
+
+            <!-- Score Comparison -->
+            <div class="score-comparison">
+                <div class="score-compare-item original">
+                    <span class="compare-label">Original Score</span>
+                    <span class="compare-score" id="originalScoreDisplay">0%</span>
+                </div>
+                <div class="score-compare-arrow">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                        <polyline points="12 5 19 12 12 19"></polyline>
+                    </svg>
+                </div>
+                <div class="score-compare-item enhanced">
+                    <span class="compare-label">Enhanced Score</span>
+                    <span class="compare-score" id="enhancedScoreDisplay">0%</span>
+                </div>
+                <div class="score-improvement" id="scoreImprovement">
+                    <span class="improvement-value" id="improvementValue">+0</span>
+                    <span class="improvement-label">points</span>
+                </div>
+            </div>
+
+            <!-- Improvements List -->
+            <div class="result-card improvements-card">
+                <h3>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="9 11 12 14 22 4"></polyline>
+                        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                    </svg>
+                    Changes Made
+                </h3>
+                <ul class="improvements-list" id="improvementsList"></ul>
+            </div>
+
+            <!-- Enhanced Explanation -->
+            <div class="result-card explanation-card">
+                <h3>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="16" x2="12" y2="12"></line>
+                        <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                    </svg>
+                    Updated Analysis
+                </h3>
+                <div class="explanation-content" id="enhancedExplanationContent"></div>
+            </div>
+
+            <!-- Download Button -->
+            <div class="download-section">
+                <a class="btn-download" id="downloadBtn" href="#" download>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    Download Enhanced Resume (PDF)
+                </a>
+            </div>
+
+            <button type="button" class="btn-new" id="newAnalysisBtn2">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="1 4 1 10 7 10"></polyline>
+                    <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+                </svg>
+                New Analysis
+            </button>
+        </section>
     </main>
 
     <footer class="footer">

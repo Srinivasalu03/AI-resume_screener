@@ -19,8 +19,10 @@ class MatchData(BaseModel):
     match_percentage: str = Field(..., description="Score formatted as percentage")
     explanation: str = Field(..., description="Human-readable match explanation")
     matched_keywords: List[str] = Field(default=[], description="Keywords in both documents")
+    job_keywords: List[str] = Field(default=[], description="Important JD keywords")
     resume_word_count: int = Field(..., ge=0, description="Resume word count")
     job_description_word_count: int = Field(..., ge=0, description="JD word count")
+    resume_text: Optional[str] = Field(default=None, description="Extracted resume text (for rewrite)")
 
 
 class FileMetadata(BaseModel):
@@ -58,6 +60,32 @@ class HealthCheckResponse(BaseModel):
     timestamp: Optional[datetime] = Field(default=None, description="Server time")
 
 
+# ── Rewrite Schemas ──────────────────────────────────────────────────────────
+
+class RewriteRequest(BaseModel):
+    """Request body for POST /rewrite."""
+
+    resume_text: str = Field(..., min_length=50, description="Extracted resume text")
+    job_description: str = Field(..., min_length=10, description="Job description text")
+    matched_keywords: List[str] = Field(default=[], description="Keywords matched in original analysis")
+    job_keywords: List[str] = Field(default=[], description="Important JD keywords from original analysis")
+    original_score: float = Field(..., ge=0.0, le=100.0, description="Original match score")
+
+
+class RewriteResponse(BaseModel):
+    """Response from POST /rewrite."""
+
+    success: bool = Field(..., description="Whether rewrite completed")
+    original_score: float = Field(..., ge=0.0, le=100.0, description="Original match score")
+    updated_score: float = Field(..., ge=0.0, le=100.0, description="New match score after rewrite")
+    score_improvement: float = Field(..., description="Score change (can be negative)")
+    improvements_summary: List[str] = Field(default=[], description="List of changes made")
+    rewritten_resume_preview: str = Field(..., description="Preview of rewritten resume")
+    download_id: str = Field(..., description="UUID for PDF download")
+    updated_analysis: MatchData = Field(..., description="Full re-analysis of rewritten resume")
+    message: Optional[str] = Field(default=None, description="Status message")
+
+
 # ── Helper Constructors ──────────────────────────────────────────────────────
 
 def create_success_response(
@@ -68,6 +96,8 @@ def create_success_response(
     job_word_count: int,
     filename: str,
     file_size_kb: float,
+    resume_text: Optional[str] = None,
+    job_keywords: Optional[List[str]] = None,
 ) -> AnalysisResponse:
     """Build a standardized success response."""
     return AnalysisResponse(
@@ -77,8 +107,10 @@ def create_success_response(
             match_percentage=f"{round(score, 1)}%",
             explanation=explanation,
             matched_keywords=matched_keywords,
+            job_keywords=job_keywords or [],
             resume_word_count=resume_word_count,
             job_description_word_count=job_word_count,
+            resume_text=resume_text,
         ),
         metadata=FileMetadata(
             filename=filename,

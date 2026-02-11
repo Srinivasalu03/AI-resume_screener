@@ -22,7 +22,7 @@ COPY backend/ .
 COPY frontend/ /app/frontend/
 
 # Create uploads directory and non-root user
-RUN mkdir -p uploads && \
+RUN mkdir -p uploads downloads && \
     addgroup --system appgroup && \
     adduser --system --ingroup appgroup appuser && \
     chown -R appuser:appgroup /app

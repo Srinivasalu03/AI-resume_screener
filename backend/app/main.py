@@ -3,6 +3,8 @@ AI Resume Screener - Main Application
 FastAPI backend for matching resumes against job descriptions using NLP.
 """
 
+import re
+import time
 import uuid
 import logging
 from datetime import datetime, timezone
@@ -16,11 +18,16 @@ from fastapi.responses import FileResponse
 from app.models.schemas import (
     AnalysisResponse,
     HealthCheckResponse,
+    MatchData,
+    RewriteRequest,
+    RewriteResponse,
     create_success_response,
 )
 from app.services.pdf_parser import extract_text_from_pdf
 from app.services.nlp_matcher import calculate_match_score
 from app.services.explainer import generate_explanation
+from app.services.resume_rewriter import rewrite_resume
+from app.services.pdf_generator import generate_resume_pdf
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +36,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="AI Resume Screener API",
     description="Match resumes to job descriptions using NLP (TF-IDF + cosine similarity)",
-    version="1.0.0",
+    version="2.0.0",
 )
 
 app.add_middleware(
@@ -45,8 +52,12 @@ app.add_middleware(
 UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
 
+DOWNLOAD_DIR = Path("downloads")
+DOWNLOAD_DIR.mkdir(exist_ok=True)
+
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
 ALLOWED_EXTENSIONS = {".pdf"}
+DOWNLOAD_MAX_AGE = 3600  # 1 hour TTL for generated PDFs
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -98,6 +109,17 @@ def cleanup_file(file_path: Path) -> None:
         logger.warning("Failed to delete temp file %s: %s", file_path, e)
 
 
+def _cleanup_old_downloads() -> None:
+    """Delete generated PDFs older than DOWNLOAD_MAX_AGE seconds."""
+    for f in DOWNLOAD_DIR.glob("*.pdf"):
+        try:
+            if time.time() - f.stat().st_mtime > DOWNLOAD_MAX_AGE:
+                f.unlink()
+                logger.info("Cleaned up stale download: %s", f.name)
+        except Exception as e:
+            logger.warning("Cleanup failed for %s: %s", f, e)
+
+
 # ── Endpoints ────────────────────────────────────────────────────────────────
 
 # ── Frontend static files (production: serve frontend from backend) ──────────
@@ -110,6 +132,12 @@ if not FRONTEND_DIR.exists():
     FRONTEND_DIR = _this_dir.parent.parent / "frontend"  # local dev: project_root/frontend
 
 
+@app.on_event("startup")
+async def startup_event():
+    """Clean up stale download files from previous runs."""
+    _cleanup_old_downloads()
+
+
 @app.get("/")
 async def root():
     """Serve frontend index.html if available, otherwise return API info."""
@@ -120,7 +148,7 @@ async def root():
         "message": "Welcome to AI Resume Screener API",
         "status": "running",
         "docs": "/docs",
-        "endpoints": {"analyze": "/analyze", "health": "/health"},
+        "endpoints": {"analyze": "/analyze", "health": "/health", "rewrite": "/rewrite"},
     }
 
 
@@ -175,7 +203,7 @@ async def analyze_resume(
             job_keywords=score_data.get("job_keywords", []),
         )
 
-        # Step 4: Build and return response
+        # Step 4: Build and return response (now includes resume_text and job_keywords)
         return create_success_response(
             score=score_data["score"],
             explanation=explanation,
@@ -184,6 +212,8 @@ async def analyze_resume(
             job_word_count=len(job_description.split()),
             filename=resume.filename,
             file_size_kb=file_size / 1024,
+            resume_text=resume_text,
+            job_keywords=score_data.get("job_keywords", []),
         )
 
     except HTTPException:
@@ -193,6 +223,86 @@ async def analyze_resume(
         raise HTTPException(status_code=500, detail=f"Analysis failed: {e}")
     finally:
         cleanup_file(file_path)
+
+
+@app.post("/rewrite", response_model=RewriteResponse)
+async def rewrite_resume_endpoint(request: RewriteRequest):
+    """Rewrite resume to better match job description and return comparison."""
+    try:
+        # Step 1: Rewrite resume using rule-based NLP
+        rewrite_result = rewrite_resume(
+            resume_text=request.resume_text,
+            job_description=request.job_description,
+            matched_keywords=request.matched_keywords,
+            job_keywords=request.job_keywords,
+        )
+
+        # Step 2: Re-run analysis on rewritten text
+        new_score_data = calculate_match_score(
+            rewrite_result["rewritten_text"],
+            request.job_description,
+        )
+        new_explanation = generate_explanation(
+            score=new_score_data["score"],
+            matched_keywords=new_score_data.get("matched_keywords", []),
+            job_keywords=new_score_data.get("job_keywords", []),
+        )
+
+        # Step 3: Generate downloadable PDF
+        download_id = uuid.uuid4().hex
+        pdf_path = DOWNLOAD_DIR / f"{download_id}.pdf"
+        generate_resume_pdf(
+            resume_text=rewrite_result["rewritten_text"],
+            sections=rewrite_result.get("sections", {}),
+            output_path=pdf_path,
+        )
+
+        # Step 4: Build comparison response
+        updated_score = new_score_data["score"]
+        return RewriteResponse(
+            success=True,
+            original_score=request.original_score,
+            updated_score=round(updated_score, 2),
+            score_improvement=round(updated_score - request.original_score, 2),
+            improvements_summary=rewrite_result["changes_made"],
+            rewritten_resume_preview=rewrite_result["rewritten_text"][:500],
+            download_id=download_id,
+            updated_analysis=MatchData(
+                score=round(updated_score, 2),
+                match_percentage=f"{round(updated_score, 1)}%",
+                explanation=new_explanation,
+                matched_keywords=new_score_data.get("matched_keywords", []),
+                job_keywords=new_score_data.get("job_keywords", []),
+                resume_word_count=len(rewrite_result["rewritten_text"].split()),
+                job_description_word_count=len(request.job_description.split()),
+            ),
+            message="Resume enhanced successfully",
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Rewrite failed")
+        raise HTTPException(status_code=500, detail=f"Resume enhancement failed: {e}")
+
+
+@app.get("/download/{download_id}")
+async def download_rewritten_resume(download_id: str):
+    """Download a rewritten resume PDF by its unique ID."""
+    # Validate format: only hex characters allowed (prevents path traversal)
+    if not re.match(r"^[a-f0-9]{32}$", download_id):
+        raise HTTPException(status_code=400, detail="Invalid download ID format.")
+
+    pdf_path = DOWNLOAD_DIR / f"{download_id}.pdf"
+    if not pdf_path.exists():
+        raise HTTPException(status_code=404, detail="File not found or has expired.")
+
+    return FileResponse(
+        path=pdf_path,
+        media_type="application/pdf",
+        filename="enhanced_resume.pdf",
+        headers={"Content-Disposition": "attachment; filename=enhanced_resume.pdf"},
+    )
 
 
 # ── Mount frontend static assets (CSS, JS) ──────────────────────────────────

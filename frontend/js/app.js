@@ -21,7 +21,17 @@ const retryBtn = document.getElementById("retryBtn");
 const resultsSection = document.getElementById("resultsSection");
 const newAnalysisBtn = document.getElementById("newAnalysisBtn");
 
+// Enhancement DOM Elements
+const enhancePromptSection = document.getElementById("enhancePromptSection");
+const enhanceBtn = document.getElementById("enhanceBtn");
+const noThanksBtn = document.getElementById("noThanksBtn");
+const enhanceLoadingSection = document.getElementById("enhanceLoadingSection");
+const comparisonSection = document.getElementById("comparisonSection");
+const downloadBtn = document.getElementById("downloadBtn");
+const newAnalysisBtn2 = document.getElementById("newAnalysisBtn2");
+
 let selectedFile = null;
+let lastAnalysisData = null; // Stores data needed for rewrite request
 
 // ===== Initialization =====
 document.addEventListener("DOMContentLoaded", () => {
@@ -215,6 +225,22 @@ function displayResults(data) {
     document.getElementById("metaTimestamp").textContent = meta.upload_timestamp
         ? new Date(meta.upload_timestamp).toLocaleString()
         : new Date().toLocaleString();
+
+    // Store data for potential rewrite request
+    lastAnalysisData = {
+        resume_text: data.data.resume_text || "",
+        job_description: jobDescription.value.trim(),
+        matched_keywords: data.data.matched_keywords || [],
+        job_keywords: data.data.job_keywords || [],
+        original_score: data.data.score,
+    };
+
+    // Show the enhance prompt after a short delay (only if resume_text is available)
+    if (lastAnalysisData.resume_text) {
+        setTimeout(() => {
+            enhancePromptSection.hidden = false;
+        }, 600);
+    }
 }
 
 function getScoreTier(score) {
@@ -241,6 +267,78 @@ function animateNumber(elementId, start, end, duration) {
     requestAnimationFrame(update);
 }
 
+// ===== Enhancement Flow =====
+async function enhanceResume() {
+    // Hide results and prompt, show enhance loading
+    enhancePromptSection.hidden = true;
+    resultsSection.hidden = true;
+    showSection("enhance-loading");
+
+    try {
+        const response = await fetch(`${API_BASE}/rewrite`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(lastAnalysisData),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            const msg = data.detail || data.error || "Enhancement failed.";
+            throw new Error(msg);
+        }
+
+        displayComparison(data);
+        showSection("comparison");
+    } catch (err) {
+        if (err.name === "TypeError" && err.message === "Failed to fetch") {
+            showError("Cannot connect to the server.");
+        } else {
+            showError(err.message);
+        }
+    }
+}
+
+function displayComparison(data) {
+    // Score comparison
+    document.getElementById("originalScoreDisplay").textContent = `${data.original_score.toFixed(1)}%`;
+    document.getElementById("enhancedScoreDisplay").textContent = `${data.updated_score.toFixed(1)}%`;
+
+    // Score improvement
+    const improvementEl = document.getElementById("scoreImprovement");
+    const sign = data.score_improvement >= 0 ? "+" : "";
+    document.getElementById("improvementValue").textContent = `${sign}${data.score_improvement.toFixed(1)}`;
+
+    improvementEl.classList.remove("positive", "negative");
+    if (data.score_improvement > 0) {
+        improvementEl.classList.add("positive");
+    } else if (data.score_improvement < 0) {
+        improvementEl.classList.add("negative");
+    }
+
+    // Improvements list
+    const list = document.getElementById("improvementsList");
+    list.innerHTML = "";
+    if (data.improvements_summary && data.improvements_summary.length > 0) {
+        data.improvements_summary.forEach((item) => {
+            const li = document.createElement("li");
+            li.textContent = item;
+            list.appendChild(li);
+        });
+    } else {
+        const li = document.createElement("li");
+        li.textContent = "No significant changes were needed.";
+        list.appendChild(li);
+    }
+
+    // Updated explanation
+    document.getElementById("enhancedExplanationContent").innerHTML =
+        renderMarkdown(data.updated_analysis.explanation);
+
+    // Download link
+    downloadBtn.href = `${API_BASE}/download/${data.download_id}`;
+}
+
 // ===== Section Management =====
 function showSection(section) {
     const uploadSection = document.querySelector(".upload-section");
@@ -248,6 +346,9 @@ function showSection(section) {
     loadingSection.hidden = section !== "loading";
     errorSection.hidden = section !== "error";
     resultsSection.hidden = section !== "results";
+    enhancePromptSection.hidden = true; // Always hide unless explicitly shown
+    enhanceLoadingSection.hidden = section !== "enhance-loading";
+    comparisonSection.hidden = section !== "comparison";
 
     if (section !== "form") {
         window.scrollTo({ top: 0, behavior: "smooth" });
@@ -266,13 +367,31 @@ function setupButtons() {
     });
 
     newAnalysisBtn.addEventListener("click", () => {
-        clearFile();
-        jobDescription.value = "";
-        charCount.textContent = "0 characters";
-        charCount.classList.remove("valid");
-        analyzeBtn.disabled = true;
-        showSection("form");
+        resetToForm();
     });
+
+    // Enhancement buttons
+    enhanceBtn.addEventListener("click", async () => {
+        await enhanceResume();
+    });
+
+    noThanksBtn.addEventListener("click", () => {
+        enhancePromptSection.hidden = true;
+    });
+
+    newAnalysisBtn2.addEventListener("click", () => {
+        resetToForm();
+    });
+}
+
+function resetToForm() {
+    clearFile();
+    jobDescription.value = "";
+    charCount.textContent = "0 characters";
+    charCount.classList.remove("valid");
+    analyzeBtn.disabled = true;
+    lastAnalysisData = null;
+    showSection("form");
 }
 
 // ===== Utilities =====

@@ -1,7 +1,7 @@
 """
 API integration tests for the FastAPI endpoints.
 
-Tests /health, / (root), and /analyze using httpx + FastAPI TestClient.
+Tests /health, / (root), /analyze, /rewrite, and /download using httpx + FastAPI TestClient.
 """
 
 import io
@@ -117,3 +117,107 @@ class TestAnalyzeValidation:
             assert 0 <= data["data"]["score"] <= 100
             assert isinstance(data["data"]["matched_keywords"], list)
             assert "metadata" in data
+            # New fields should be present
+            assert "job_keywords" in data["data"]
+            assert "resume_text" in data["data"]
+
+
+# ── /rewrite endpoint ────────────────────────────────────────────────────────
+
+class TestRewriteEndpoint:
+    SAMPLE_RESUME_TEXT = (
+        "John Doe\njohn@email.com\n\n"
+        "Summary\nExperienced software developer with 5 years in web development.\n\n"
+        "Skills\nPython, JavaScript, React, SQL, Git, Docker\n\n"
+        "Experience\n"
+        "- Built REST APIs using Flask and Django\n"
+        "- Designed database schemas for PostgreSQL\n"
+        "- Collaborated with cross-functional teams on agile projects\n"
+        "- Wrote unit tests and integration tests for backend services\n\n"
+        "Education\nB.S. Computer Science, State University, 2018"
+    )
+
+    def test_rewrite_returns_comparison(self):
+        """POST /rewrite with valid data returns a comparison response."""
+        resp = client.post(
+            "/rewrite",
+            json={
+                "resume_text": self.SAMPLE_RESUME_TEXT,
+                "job_description": "Senior Python Developer with FastAPI, Kubernetes, AWS, and CI/CD experience.",
+                "matched_keywords": ["python", "docker", "sql", "git"],
+                "job_keywords": ["python", "fastapi", "kubernetes", "aws", "ci cd", "docker", "sql"],
+                "original_score": 45.0,
+            },
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["success"] is True
+        assert data["original_score"] == 45.0
+        assert "updated_score" in data
+        assert "score_improvement" in data
+        assert "improvements_summary" in data
+        assert len(data["improvements_summary"]) > 0
+        assert "download_id" in data
+        assert len(data["download_id"]) == 32  # UUID hex
+        assert "updated_analysis" in data
+        assert data["updated_analysis"]["score"] >= 0
+
+    def test_rewrite_rejects_short_resume(self):
+        """Resume text under 50 chars should be rejected by Pydantic validation."""
+        resp = client.post(
+            "/rewrite",
+            json={
+                "resume_text": "Too short",
+                "job_description": "Python developer with 5 years experience",
+                "matched_keywords": [],
+                "job_keywords": ["python"],
+                "original_score": 10.0,
+            },
+        )
+        assert resp.status_code == 422  # Pydantic validation error
+
+    def test_rewrite_rejects_short_jd(self):
+        """Job description under 10 chars should be rejected."""
+        resp = client.post(
+            "/rewrite",
+            json={
+                "resume_text": self.SAMPLE_RESUME_TEXT,
+                "job_description": "short",
+                "matched_keywords": [],
+                "job_keywords": [],
+                "original_score": 10.0,
+            },
+        )
+        assert resp.status_code == 422
+
+    def test_download_after_rewrite(self):
+        """GET /download/{id} should return a PDF after a successful rewrite."""
+        # First, create a rewrite
+        rewrite_resp = client.post(
+            "/rewrite",
+            json={
+                "resume_text": self.SAMPLE_RESUME_TEXT,
+                "job_description": "Senior Python Developer with FastAPI, Kubernetes, AWS experience.",
+                "matched_keywords": ["python", "docker"],
+                "job_keywords": ["python", "fastapi", "kubernetes", "aws", "docker"],
+                "original_score": 30.0,
+            },
+        )
+        assert rewrite_resp.status_code == 200
+        download_id = rewrite_resp.json()["download_id"]
+
+        # Then download the PDF
+        dl_resp = client.get(f"/download/{download_id}")
+        assert dl_resp.status_code == 200
+        assert dl_resp.headers["content-type"] == "application/pdf"
+        assert dl_resp.content[:5] == b"%PDF-"
+
+    def test_download_invalid_id_returns_400(self):
+        """Invalid download ID format should return 400."""
+        resp = client.get("/download/not-a-valid-id!")
+        assert resp.status_code == 400
+
+    def test_download_nonexistent_id_returns_404(self):
+        """Valid format but nonexistent ID should return 404."""
+        resp = client.get("/download/00000000000000000000000000000000")
+        assert resp.status_code == 404
