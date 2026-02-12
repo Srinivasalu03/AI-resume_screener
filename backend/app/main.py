@@ -17,6 +17,11 @@ from fastapi.responses import FileResponse
 
 from app.models.schemas import (
     AnalysisResponse,
+    ATSCheckItem,
+    ATSCheckRequest,
+    ATSCheckResponse,
+    CoverLetterRequest,
+    CoverLetterResponse,
     HealthCheckResponse,
     MatchData,
     RecommendationsRequest,
@@ -34,6 +39,8 @@ from app.services.resume_rewriter import rewrite_resume
 from app.services.pdf_generator import generate_resume_pdf
 from app.services.job_recommender import generate_recommendations
 from app.services.section_scorer import calculate_section_scores
+from app.services.cover_letter_generator import generate_cover_letter, generate_cover_letter_pdf
+from app.services.ats_checker import check_ats_compatibility
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +49,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="AI Resume Screener API",
     description="Match resumes to job descriptions using NLP (TF-IDF + cosine similarity)",
-    version="4.0.0",
+    version="5.0.0",
 )
 
 app.add_middleware(
@@ -154,7 +161,7 @@ async def root():
         "message": "Welcome to AI Resume Screener API",
         "status": "running",
         "docs": "/docs",
-        "endpoints": {"analyze": "/analyze", "health": "/health", "rewrite": "/rewrite", "recommendations": "/recommendations"},
+        "endpoints": {"analyze": "/analyze", "health": "/health", "rewrite": "/rewrite", "recommendations": "/recommendations", "cover-letter": "/cover-letter", "ats-check": "/ats-check"},
     }
 
 
@@ -324,22 +331,86 @@ async def get_recommendations(request: RecommendationsRequest):
         raise HTTPException(status_code=500, detail=f"Recommendation generation failed: {e}")
 
 
+@app.post("/cover-letter", response_model=CoverLetterResponse)
+async def generate_cover_letter_endpoint(request: CoverLetterRequest):
+    """Generate a tailored cover letter from resume and job description."""
+    try:
+        result = generate_cover_letter(
+            resume_text=request.resume_text,
+            job_description=request.job_description,
+            matched_keywords=request.matched_keywords,
+            job_keywords=request.job_keywords,
+            candidate_name=request.candidate_name,
+        )
+
+        # Generate downloadable PDF
+        download_id = uuid.uuid4().hex
+        pdf_path = DOWNLOAD_DIR / f"cl_{download_id}.pdf"
+        generate_cover_letter_pdf(
+            cover_letter_text=result["cover_letter"],
+            output_path=pdf_path,
+        )
+
+        return CoverLetterResponse(
+            success=True,
+            cover_letter=result["cover_letter"],
+            word_count=result["word_count"],
+            key_highlights=result["key_highlights"],
+            candidate_name=result["candidate_name"],
+            download_id=download_id,
+            message="Cover letter generated successfully",
+        )
+
+    except Exception as e:
+        logger.exception("Cover letter generation failed")
+        raise HTTPException(status_code=500, detail=f"Cover letter generation failed: {e}")
+
+
+@app.post("/ats-check", response_model=ATSCheckResponse)
+async def ats_check_endpoint(request: ATSCheckRequest):
+    """Run ATS compatibility checks on resume text."""
+    try:
+        result = check_ats_compatibility(
+            resume_text=request.resume_text,
+            filename=request.filename,
+        )
+
+        return ATSCheckResponse(
+            success=True,
+            score=result["score"],
+            checks=[ATSCheckItem(**c) for c in result["checks"]],
+            summary=result["summary"],
+            pass_count=result["pass_count"],
+            warning_count=result["warning_count"],
+            fail_count=result["fail_count"],
+            message=f"ATS compatibility score: {result['score']:.0f}/100",
+        )
+
+    except Exception as e:
+        logger.exception("ATS check failed")
+        raise HTTPException(status_code=500, detail=f"ATS check failed: {e}")
+
+
 @app.get("/download/{download_id}")
 async def download_rewritten_resume(download_id: str):
     """Download a rewritten resume PDF by its unique ID."""
-    # Validate format: only hex characters allowed (prevents path traversal)
-    if not re.match(r"^[a-f0-9]{32}$", download_id):
+    # Validate format: only hex characters allowed, optionally with cl_ prefix
+    if not re.match(r"^(?:cl_)?[a-f0-9]{32}$", download_id):
         raise HTTPException(status_code=400, detail="Invalid download ID format.")
 
     pdf_path = DOWNLOAD_DIR / f"{download_id}.pdf"
     if not pdf_path.exists():
         raise HTTPException(status_code=404, detail="File not found or has expired.")
 
+    # Determine filename based on type
+    is_cover_letter = download_id.startswith("cl_")
+    dl_filename = "cover_letter.pdf" if is_cover_letter else "enhanced_resume.pdf"
+
     return FileResponse(
         path=pdf_path,
         media_type="application/pdf",
-        filename="enhanced_resume.pdf",
-        headers={"Content-Disposition": "attachment; filename=enhanced_resume.pdf"},
+        filename=dl_filename,
+        headers={"Content-Disposition": f"attachment; filename={dl_filename}"},
     )
 
 

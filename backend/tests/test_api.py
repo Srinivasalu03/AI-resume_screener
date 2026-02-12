@@ -359,3 +359,140 @@ class TestRewriteWithTemplate:
         )
         assert resp.status_code == 200
         assert resp.json()["success"] is True
+
+
+# ── /cover-letter ────────────────────────────────────────────────────────
+
+
+class TestCoverLetterEndpoint:
+    SAMPLE_RESUME_TEXT = (
+        "John Doe\njohn@email.com\n\n"
+        "Summary\nExperienced software developer with 5 years in web development.\n\n"
+        "Skills\nPython, JavaScript, React, SQL, Git, Docker, FastAPI\n\n"
+        "Experience\n"
+        "- Built scalable REST APIs using FastAPI and Django\n"
+        "- Reduced deployment time by 50% with CI/CD pipelines\n"
+        "- Managed PostgreSQL databases with 5M+ records\n\n"
+        "Education\nB.S. Computer Science, State University, 2018"
+    )
+
+    def test_generates_cover_letter(self):
+        resp = client.post(
+            "/cover-letter",
+            json={
+                "resume_text": self.SAMPLE_RESUME_TEXT,
+                "job_description": "Senior Python Developer with FastAPI and AWS experience.",
+                "matched_keywords": ["python", "fastapi", "docker"],
+                "job_keywords": ["python", "fastapi", "docker", "aws"],
+            },
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["success"] is True
+        assert "Dear Hiring Manager" in data["cover_letter"]
+        assert "Sincerely" in data["cover_letter"]
+        assert data["word_count"] > 50
+        assert len(data["download_id"]) == 32
+
+    def test_cover_letter_with_custom_name(self):
+        resp = client.post(
+            "/cover-letter",
+            json={
+                "resume_text": self.SAMPLE_RESUME_TEXT,
+                "job_description": "Python developer needed.",
+                "candidate_name": "Jane Smith",
+            },
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["candidate_name"] == "Jane Smith"
+        assert "Jane Smith" in data["cover_letter"]
+
+    def test_rejects_short_resume(self):
+        resp = client.post(
+            "/cover-letter",
+            json={
+                "resume_text": "Too short",
+                "job_description": "Python developer needed.",
+            },
+        )
+        assert resp.status_code == 422
+
+    def test_cover_letter_pdf_downloadable(self):
+        """Generated cover letter PDF should be downloadable."""
+        resp = client.post(
+            "/cover-letter",
+            json={
+                "resume_text": self.SAMPLE_RESUME_TEXT,
+                "job_description": "Python developer with 5 years experience.",
+                "matched_keywords": ["python"],
+                "job_keywords": ["python", "fastapi"],
+            },
+        )
+        assert resp.status_code == 200
+        download_id = resp.json()["download_id"]
+        dl_resp = client.get(f"/download/cl_{download_id}")
+        assert dl_resp.status_code == 200
+        assert dl_resp.headers["content-type"] == "application/pdf"
+
+
+# ── /ats-check ───────────────────────────────────────────────────────────
+
+
+class TestATSCheckEndpoint:
+    SAMPLE_RESUME_TEXT = (
+        "John Doe\njohn@email.com\n+1-555-123-4567\n\n"
+        "Summary\nExperienced developer.\n\n"
+        "Skills\nPython, Docker, AWS, FastAPI\n\n"
+        "Experience\n"
+        "Senior Engineer at TechCorp (Jan 2020 - Present)\n"
+        "- Developed scalable APIs using Python\n"
+        "- Deployed services on AWS with Docker\n"
+        "- Improved system reliability by 30%\n"
+        "- Implemented automated testing pipelines\n"
+        "- Built monitoring dashboards for production services\n\n"
+        "Education\nB.S. Computer Science, 2018"
+    )
+
+    def test_ats_check_returns_score(self):
+        resp = client.post(
+            "/ats-check",
+            json={
+                "resume_text": self.SAMPLE_RESUME_TEXT,
+                "filename": "resume.pdf",
+            },
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["success"] is True
+        assert 0 <= data["score"] <= 100
+        assert len(data["checks"]) == 10
+        assert data["pass_count"] + data["warning_count"] + data["fail_count"] == 10
+
+    def test_ats_check_without_filename(self):
+        resp = client.post(
+            "/ats-check",
+            json={"resume_text": self.SAMPLE_RESUME_TEXT},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["success"] is True
+
+    def test_ats_check_has_summary(self):
+        resp = client.post(
+            "/ats-check",
+            json={"resume_text": self.SAMPLE_RESUME_TEXT},
+        )
+        data = resp.json()
+        assert len(data["summary"]) > 0
+        assert data["message"] is not None
+
+    def test_ats_check_individual_items(self):
+        resp = client.post(
+            "/ats-check",
+            json={"resume_text": self.SAMPLE_RESUME_TEXT},
+        )
+        for check in resp.json()["checks"]:
+            assert "name" in check
+            assert "status" in check
+            assert check["status"] in ("pass", "warning", "fail")
+            assert "message" in check

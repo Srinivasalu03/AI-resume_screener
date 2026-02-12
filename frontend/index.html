@@ -206,6 +206,25 @@
                 </div>
             </div>
 
+            <!-- ATS Compatibility Report (auto-loaded after analysis) -->
+            <div class="result-card ats-report-card" id="atsReportContainer" hidden>
+                <h3>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 11l3 3L22 4"></path>
+                        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                    </svg>
+                    ATS Compatibility Report
+                </h3>
+                <div class="ats-score-header" id="atsScoreHeader">
+                    <div class="ats-score-ring">
+                        <span class="ats-score-value" id="atsScoreValue">-</span>
+                        <span class="ats-score-label">/100</span>
+                    </div>
+                    <p class="ats-summary" id="atsSummary"></p>
+                </div>
+                <div class="ats-checks-list" id="atsChecksList"></div>
+            </div>
+
             <!-- Section Breakdown -->
             <div class="result-card section-scores-card" id="sectionScoresContainer" hidden>
                 <h3>
@@ -265,6 +284,13 @@
             </div>
 
             <div class="results-actions">
+                <button type="button" class="btn-back" id="backToFormBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="19" y1="12" x2="5" y2="12"></line>
+                        <polyline points="12 19 5 12 12 5"></polyline>
+                    </svg>
+                    Back
+                </button>
                 <button type="button" class="btn-new" id="newAnalysisBtn">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <polyline points="1 4 1 10 7 10"></polyline>
@@ -416,6 +442,20 @@
             </div>
 
             <div class="results-actions">
+                <button type="button" class="btn-back" id="backToResultsBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="19" y1="12" x2="5" y2="12"></line>
+                        <polyline points="12 19 5 12 12 5"></polyline>
+                    </svg>
+                    Back to Results
+                </button>
+                <button type="button" class="btn-cover-letter" id="generateCoverLetterBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                        <polyline points="22,6 12,13 2,6"></polyline>
+                    </svg>
+                    Generate Cover Letter
+                </button>
                 <button type="button" class="btn-recommendations" id="viewRecommendationsBtn2">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
@@ -424,6 +464,72 @@
                     View Job Recommendations
                 </button>
                 <button type="button" class="btn-new" id="newAnalysisBtn2">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="1 4 1 10 7 10"></polyline>
+                        <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+                    </svg>
+                    New Analysis
+                </button>
+            </div>
+        </section>
+
+        <!-- Cover Letter Loading Section -->
+        <section class="loading-section" id="coverLetterLoadingSection" hidden>
+            <div class="loader">
+                <div class="loader-spinner"></div>
+                <p class="loader-text">Generating cover letter...</p>
+                <p class="loader-subtext">Tailoring content to the job description</p>
+            </div>
+        </section>
+
+        <!-- Cover Letter Section -->
+        <section class="cover-letter-section" id="coverLetterSection" hidden>
+            <h2 class="results-title">AI-Generated Cover Letter</h2>
+            <div class="cover-letter-meta">
+                <span class="cl-candidate" id="clCandidateName"></span>
+                <span class="cl-word-count" id="clWordCount"></span>
+            </div>
+
+            <!-- Key Highlights -->
+            <div class="cl-highlights" id="clHighlights"></div>
+
+            <!-- Editable Preview -->
+            <div class="cl-editor-card">
+                <div class="cl-editor-header">
+                    <h3>Cover Letter Preview</h3>
+                    <span class="cl-edit-hint">Click to edit</span>
+                </div>
+                <textarea class="cl-textarea" id="clTextarea" rows="18"></textarea>
+            </div>
+
+            <!-- Actions -->
+            <div class="cl-actions">
+                <button type="button" class="btn-copy" id="clCopyBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                    </svg>
+                    Copy to Clipboard
+                </button>
+                <a class="btn-download cl-download" id="clDownloadBtn" href="#" download>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    Download PDF
+                </a>
+            </div>
+
+            <div class="results-actions">
+                <button type="button" class="btn-back" id="backToComparisonBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="19" y1="12" x2="5" y2="12"></line>
+                        <polyline points="12 19 5 12 12 5"></polyline>
+                    </svg>
+                    Back to Enhancement
+                </button>
+                <button type="button" class="btn-new" id="newAnalysisBtn4">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <polyline points="1 4 1 10 7 10"></polyline>
                         <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
@@ -478,13 +584,22 @@
             <!-- Job Cards Grid -->
             <div class="job-cards-grid" id="jobCardsGrid"></div>
 
-            <button type="button" class="btn-new" id="newAnalysisBtn3">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polyline points="1 4 1 10 7 10"></polyline>
-                    <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
-                </svg>
-                New Analysis
-            </button>
+            <div class="results-actions">
+                <button type="button" class="btn-back" id="backFromRecommendationsBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="19" y1="12" x2="5" y2="12"></line>
+                        <polyline points="12 19 5 12 12 5"></polyline>
+                    </svg>
+                    Back
+                </button>
+                <button type="button" class="btn-new" id="newAnalysisBtn3">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="1 4 1 10 7 10"></polyline>
+                        <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+                    </svg>
+                    New Analysis
+                </button>
+            </div>
         </section>
     </main>
 

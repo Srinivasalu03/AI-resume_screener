@@ -151,6 +151,62 @@ class RewriteResponse(BaseModel):
     message: Optional[str] = Field(default=None, description="Status message")
 
 
+# ── Cover Letter Schemas ────────────────────────────────────────────────────
+
+class CoverLetterRequest(BaseModel):
+    """Request body for POST /cover-letter."""
+
+    resume_text: str = Field(..., min_length=50, description="Resume text (original or enhanced)")
+    job_description: str = Field(..., min_length=10, description="Job description text")
+    matched_keywords: List[str] = Field(default=[], description="Keywords matched in analysis")
+    job_keywords: List[str] = Field(default=[], description="Important JD keywords")
+    candidate_name: Optional[str] = Field(default=None, description="Override candidate name")
+
+
+class CoverLetterResponse(BaseModel):
+    """Response from POST /cover-letter."""
+
+    success: bool = Field(..., description="Whether generation completed")
+    cover_letter: str = Field(..., description="Generated cover letter text")
+    word_count: int = Field(..., ge=0, description="Cover letter word count")
+    key_highlights: List[str] = Field(default=[], description="Skills/achievements emphasized")
+    candidate_name: str = Field(..., description="Detected or provided name")
+    download_id: str = Field(..., description="UUID for PDF download")
+    message: Optional[str] = Field(default=None, description="Status message")
+
+
+# ── ATS Checker Schemas ────────────────────────────────────────────────────
+
+class ATSCheckItem(BaseModel):
+    """A single ATS compatibility check result."""
+
+    name: str = Field(..., description="Check name")
+    category: str = Field(..., description="Check category (file, structure, content, parsing, formatting)")
+    status: str = Field(..., description="pass, warning, or fail")
+    message: str = Field(..., description="What was found")
+    fix: Optional[str] = Field(default=None, description="How to fix (null if passed)")
+
+
+class ATSCheckRequest(BaseModel):
+    """Request body for POST /ats-check."""
+
+    resume_text: str = Field(..., min_length=10, description="Resume text to check")
+    filename: Optional[str] = Field(default=None, description="Original filename")
+
+
+class ATSCheckResponse(BaseModel):
+    """Response from POST /ats-check."""
+
+    success: bool = Field(..., description="Whether check completed")
+    score: float = Field(..., ge=0.0, le=100.0, description="ATS compatibility score")
+    checks: List[ATSCheckItem] = Field(default=[], description="Individual check results")
+    summary: str = Field(..., description="Overall assessment")
+    pass_count: int = Field(..., ge=0, description="Checks that passed")
+    warning_count: int = Field(..., ge=0, description="Checks with warnings")
+    fail_count: int = Field(..., ge=0, description="Checks that failed")
+    message: Optional[str] = Field(default=None, description="Status message")
+
+
 # ── Helper Constructors ──────────────────────────────────────────────────────
 
 def create_success_response(

@@ -37,6 +37,21 @@ const recommendationsLoadingSection = document.getElementById("recommendationsLo
 const recommendationsSection = document.getElementById("recommendationsSection");
 const newAnalysisBtn3 = document.getElementById("newAnalysisBtn3");
 
+// Cover Letter DOM Elements
+const coverLetterLoadingSection = document.getElementById("coverLetterLoadingSection");
+const coverLetterSection = document.getElementById("coverLetterSection");
+const generateCoverLetterBtn = document.getElementById("generateCoverLetterBtn");
+const clCopyBtn = document.getElementById("clCopyBtn");
+const clDownloadBtn = document.getElementById("clDownloadBtn");
+const clTextarea = document.getElementById("clTextarea");
+const newAnalysisBtn4 = document.getElementById("newAnalysisBtn4");
+
+// Back Button DOM Elements
+const backToFormBtn = document.getElementById("backToFormBtn");
+const backToResultsBtn = document.getElementById("backToResultsBtn");
+const backToComparisonBtn = document.getElementById("backToComparisonBtn");
+const backFromRecommendationsBtn = document.getElementById("backFromRecommendationsBtn");
+
 let selectedFile = null;
 let lastAnalysisData = null; // Stores data needed for rewrite request
 let selectedRoleTemplate = null; // Selected role template for enhancement
@@ -255,8 +270,9 @@ function displayResults(data) {
             enhancePromptSection.hidden = false;
         }, 600);
 
-        // Auto-fetch job recommendations in the background
+        // Auto-fetch job recommendations and ATS check in the background
         fetchRecommendationsInline();
+        fetchATSCheck();
     }
 }
 
@@ -371,6 +387,8 @@ function showSection(section) {
     enhancePromptSection.hidden = true; // Always hide unless explicitly shown
     enhanceLoadingSection.hidden = section !== "enhance-loading";
     comparisonSection.hidden = section !== "comparison";
+    coverLetterLoadingSection.hidden = section !== "cover-letter-loading";
+    coverLetterSection.hidden = section !== "cover-letter";
     recommendationsLoadingSection.hidden = section !== "recommendations-loading";
     recommendationsSection.hidden = section !== "recommendations";
 
@@ -419,6 +437,42 @@ function setupButtons() {
     newAnalysisBtn3.addEventListener("click", () => {
         resetToForm();
     });
+
+    // Back buttons
+    backToFormBtn.addEventListener("click", () => {
+        showSection("form");
+    });
+
+    backToResultsBtn.addEventListener("click", () => {
+        showSection("results");
+        if (lastAnalysisData && lastAnalysisData.resume_text) {
+            enhancePromptSection.hidden = false;
+        }
+    });
+
+    backToComparisonBtn.addEventListener("click", () => {
+        showSection("comparison");
+    });
+
+    backFromRecommendationsBtn.addEventListener("click", () => {
+        showSection("results");
+        if (lastAnalysisData && lastAnalysisData.resume_text) {
+            enhancePromptSection.hidden = false;
+        }
+    });
+
+    // Cover letter buttons
+    generateCoverLetterBtn.addEventListener("click", async () => {
+        await generateCoverLetter();
+    });
+
+    clCopyBtn.addEventListener("click", () => {
+        copyToClipboard();
+    });
+
+    newAnalysisBtn4.addEventListener("click", () => {
+        resetToForm();
+    });
 }
 
 function resetToForm() {
@@ -449,6 +503,13 @@ function resetToForm() {
     // Reset inline recommendations
     const inlineSection = document.getElementById("inlineRecommendations");
     if (inlineSection) inlineSection.hidden = true;
+
+    // Reset ATS report
+    const atsContainer = document.getElementById("atsReportContainer");
+    if (atsContainer) atsContainer.hidden = true;
+
+    // Reset cover letter
+    if (clTextarea) clTextarea.value = "";
 
     showSection("form");
 }
@@ -790,6 +851,165 @@ function setupRoleSelection() {
                     Enhance with ${escapeHtml(templateName)} Template`;
             }
         });
+    });
+}
+
+// ===== ATS Compatibility Check =====
+async function fetchATSCheck() {
+    const container = document.getElementById("atsReportContainer");
+    if (!container || !lastAnalysisData || !lastAnalysisData.resume_text) return;
+
+    try {
+        const response = await fetch(`${API_BASE}/ats-check`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                resume_text: lastAnalysisData.resume_text,
+                filename: document.getElementById("metaFilename")?.textContent || null,
+            }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) return;
+
+        displayATSReport(data);
+    } catch {
+        // Silently fail — ATS check is supplementary
+    }
+}
+
+function displayATSReport(data) {
+    const container = document.getElementById("atsReportContainer");
+    const scoreValue = document.getElementById("atsScoreValue");
+    const summary = document.getElementById("atsSummary");
+    const checksList = document.getElementById("atsChecksList");
+
+    if (!container) return;
+
+    // Score
+    scoreValue.textContent = Math.round(data.score);
+
+    // Color the score
+    const tier = data.score >= 80 ? "excellent" : data.score >= 60 ? "good" : data.score >= 40 ? "moderate" : "low";
+    const scoreRing = container.querySelector(".ats-score-ring");
+    if (scoreRing) scoreRing.className = `ats-score-ring ${tier}`;
+
+    // Summary
+    summary.textContent = data.summary;
+
+    // Checks list
+    checksList.innerHTML = "";
+    data.checks.forEach((check) => {
+        const statusClass = check.status === "pass" ? "pass" : check.status === "warning" ? "warning" : "fail";
+        const statusIcon = check.status === "pass" ? "\u2713" : check.status === "warning" ? "!" : "\u2717";
+
+        const item = document.createElement("div");
+        item.className = `ats-check-item ${statusClass}`;
+        item.innerHTML = `
+            <div class="ats-check-header">
+                <span class="ats-check-status-icon ${statusClass}">${statusIcon}</span>
+                <span class="ats-check-name">${escapeHtml(check.name)}</span>
+                <span class="ats-check-category">${escapeHtml(check.category)}</span>
+            </div>
+            <p class="ats-check-message">${escapeHtml(check.message)}</p>
+            ${check.fix ? `<p class="ats-check-fix">${escapeHtml(check.fix)}</p>` : ""}
+        `;
+        checksList.appendChild(item);
+    });
+
+    // Status counts
+    const countsEl = document.createElement("div");
+    countsEl.className = "ats-counts";
+    countsEl.innerHTML = `
+        <span class="ats-count pass">${data.pass_count} passed</span>
+        <span class="ats-count warning">${data.warning_count} warnings</span>
+        <span class="ats-count fail">${data.fail_count} failed</span>
+    `;
+    checksList.insertBefore(countsEl, checksList.firstChild);
+
+    container.hidden = false;
+}
+
+// ===== Cover Letter Generation =====
+async function generateCoverLetter() {
+    if (!lastAnalysisData || !lastAnalysisData.resume_text) {
+        showError("No resume data available. Please analyze a resume first.");
+        return;
+    }
+
+    showSection("cover-letter-loading");
+
+    try {
+        const response = await fetch(`${API_BASE}/cover-letter`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                resume_text: lastAnalysisData.resume_text,
+                job_description: lastAnalysisData.job_description,
+                matched_keywords: lastAnalysisData.matched_keywords || [],
+                job_keywords: lastAnalysisData.job_keywords || [],
+            }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            const msg = data.detail || data.error || "Cover letter generation failed.";
+            throw new Error(msg);
+        }
+
+        displayCoverLetter(data);
+        showSection("cover-letter");
+    } catch (err) {
+        if (err.name === "TypeError" && err.message === "Failed to fetch") {
+            showError("Cannot connect to the server.");
+        } else {
+            showError(err.message);
+        }
+    }
+}
+
+function displayCoverLetter(data) {
+    // Candidate name and word count
+    const candidateEl = document.getElementById("clCandidateName");
+    const wordCountEl = document.getElementById("clWordCount");
+    candidateEl.textContent = data.candidate_name || "Candidate";
+    wordCountEl.textContent = `${data.word_count} words`;
+
+    // Key highlights
+    const highlightsEl = document.getElementById("clHighlights");
+    highlightsEl.innerHTML = "";
+    if (data.key_highlights && data.key_highlights.length > 0) {
+        data.key_highlights.forEach((h) => {
+            const tag = document.createElement("span");
+            tag.className = "cl-highlight-tag";
+            tag.textContent = h;
+            highlightsEl.appendChild(tag);
+        });
+    }
+
+    // Editable textarea
+    clTextarea.value = data.cover_letter;
+
+    // Download link
+    clDownloadBtn.href = `${API_BASE}/download/cl_${data.download_id}`;
+}
+
+function copyToClipboard() {
+    const text = clTextarea.value;
+    navigator.clipboard.writeText(text).then(() => {
+        const originalText = clCopyBtn.innerHTML;
+        clCopyBtn.innerHTML = `
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            Copied!`;
+        clCopyBtn.classList.add("copied");
+        setTimeout(() => {
+            clCopyBtn.innerHTML = originalText;
+            clCopyBtn.classList.remove("copied");
+        }, 2000);
     });
 }
 
