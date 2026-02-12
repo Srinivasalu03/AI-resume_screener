@@ -19,6 +19,10 @@ from app.models.schemas import (
     AnalysisResponse,
     HealthCheckResponse,
     MatchData,
+    RecommendationsRequest,
+    RecommendationsResponse,
+    ResumeProfile,
+    JobRecommendation,
     RewriteRequest,
     RewriteResponse,
     create_success_response,
@@ -28,6 +32,7 @@ from app.services.nlp_matcher import calculate_match_score
 from app.services.explainer import generate_explanation
 from app.services.resume_rewriter import rewrite_resume
 from app.services.pdf_generator import generate_resume_pdf
+from app.services.job_recommender import generate_recommendations
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +41,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="AI Resume Screener API",
     description="Match resumes to job descriptions using NLP (TF-IDF + cosine similarity)",
-    version="2.0.0",
+    version="3.0.0",
 )
 
 app.add_middleware(
@@ -148,7 +153,7 @@ async def root():
         "message": "Welcome to AI Resume Screener API",
         "status": "running",
         "docs": "/docs",
-        "endpoints": {"analyze": "/analyze", "health": "/health", "rewrite": "/rewrite"},
+        "endpoints": {"analyze": "/analyze", "health": "/health", "rewrite": "/rewrite", "recommendations": "/recommendations"},
     }
 
 
@@ -284,6 +289,29 @@ async def rewrite_resume_endpoint(request: RewriteRequest):
     except Exception as e:
         logger.exception("Rewrite failed")
         raise HTTPException(status_code=500, detail=f"Resume enhancement failed: {e}")
+
+
+@app.post("/recommendations", response_model=RecommendationsResponse)
+async def get_recommendations(request: RecommendationsRequest):
+    """Generate job recommendations based on resume profile."""
+    try:
+        result = generate_recommendations(
+            resume_text=request.resume_text,
+            matched_keywords=request.matched_keywords,
+            job_keywords=request.job_keywords,
+        )
+
+        return RecommendationsResponse(
+            success=True,
+            profile=ResumeProfile(**result["profile"]),
+            recommendations=[JobRecommendation(**r) for r in result["recommendations"]],
+            total_matched=result["total_matched"],
+            message=f"Found {result['total_matched']} matching roles",
+        )
+
+    except Exception as e:
+        logger.exception("Recommendations failed")
+        raise HTTPException(status_code=500, detail=f"Recommendation generation failed: {e}")
 
 
 @app.get("/download/{download_id}")

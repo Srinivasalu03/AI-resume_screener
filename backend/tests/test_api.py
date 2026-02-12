@@ -221,3 +221,74 @@ class TestRewriteEndpoint:
         """Valid format but nonexistent ID should return 404."""
         resp = client.get("/download/00000000000000000000000000000000")
         assert resp.status_code == 404
+
+
+# ── /recommendations endpoint ──────────────────────────────────────────────
+
+class TestRecommendationsEndpoint:
+    SAMPLE_RESUME = (
+        "John Doe\njohn@email.com\n\n"
+        "Senior Software Engineer with 7 years of experience.\n\n"
+        "Skills\nPython, FastAPI, Django, PostgreSQL, Docker, Kubernetes, AWS, CI/CD, Git, Linux\n\n"
+        "Experience\n"
+        "- Built microservices using FastAPI and Docker\n"
+        "- Managed PostgreSQL databases with millions of records\n"
+        "- Implemented CI/CD pipelines using GitHub Actions\n"
+        "- Led cloud migration to AWS with Kubernetes orchestration\n\n"
+        "Education\nB.S. Computer Science, Stanford University, 2017"
+    )
+
+    def test_recommendations_returns_results(self):
+        """POST /recommendations with valid resume returns recommendations."""
+        resp = client.post(
+            "/recommendations",
+            json={
+                "resume_text": self.SAMPLE_RESUME,
+                "matched_keywords": ["python", "docker"],
+                "job_keywords": ["python", "fastapi", "kubernetes"],
+            },
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["success"] is True
+        assert data["total_matched"] > 0
+        assert "profile" in data
+        assert "recommendations" in data
+        assert len(data["recommendations"]) > 0
+
+    def test_recommendation_structure(self):
+        """Each recommendation should have required fields."""
+        resp = client.post(
+            "/recommendations",
+            json={"resume_text": self.SAMPLE_RESUME},
+        )
+        assert resp.status_code == 200
+        rec = resp.json()["recommendations"][0]
+        assert "title" in rec
+        assert "company" in rec
+        assert "match_score" in rec
+        assert 0 <= rec["match_score"] <= 100
+        assert "matched_skills" in rec
+        assert "missing_skills" in rec
+        assert "salary_range" in rec
+
+    def test_profile_fields(self):
+        """Profile should include experience level, domains, skills."""
+        resp = client.post(
+            "/recommendations",
+            json={"resume_text": self.SAMPLE_RESUME},
+        )
+        assert resp.status_code == 200
+        profile = resp.json()["profile"]
+        assert "experience_level" in profile
+        assert "domains" in profile
+        assert "detected_skills" in profile
+        assert "skill_count" in profile
+
+    def test_rejects_short_resume(self):
+        """Resume text under 50 chars should be rejected."""
+        resp = client.post(
+            "/recommendations",
+            json={"resume_text": "Too short"},
+        )
+        assert resp.status_code == 422

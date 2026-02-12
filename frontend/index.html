@@ -206,13 +206,22 @@
                 </div>
             </div>
 
-            <button type="button" class="btn-new" id="newAnalysisBtn">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polyline points="1 4 1 10 7 10"></polyline>
-                    <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
-                </svg>
-                New Analysis
-            </button>
+            <div class="results-actions">
+                <button type="button" class="btn-recommendations" id="viewRecommendationsBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+                        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+                    </svg>
+                    View Job Recommendations
+                </button>
+                <button type="button" class="btn-new" id="newAnalysisBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="1 4 1 10 7 10"></polyline>
+                        <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+                    </svg>
+                    New Analysis
+                </button>
+            </div>
         </section>
 
         <!-- Enhance Prompt Section -->
@@ -310,7 +319,70 @@
                 </a>
             </div>
 
-            <button type="button" class="btn-new" id="newAnalysisBtn2">
+            <div class="results-actions">
+                <button type="button" class="btn-recommendations" id="viewRecommendationsBtn2">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+                        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+                    </svg>
+                    View Job Recommendations
+                </button>
+                <button type="button" class="btn-new" id="newAnalysisBtn2">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="1 4 1 10 7 10"></polyline>
+                        <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+                    </svg>
+                    New Analysis
+                </button>
+            </div>
+        </section>
+
+        <!-- Recommendations Loading Section -->
+        <section class="loading-section" id="recommendationsLoadingSection" hidden>
+            <div class="loader">
+                <div class="loader-spinner"></div>
+                <p class="loader-text">Finding matching roles...</p>
+                <p class="loader-subtext">Analyzing your skills and experience</p>
+            </div>
+        </section>
+
+        <!-- Job Recommendations Section -->
+        <section class="recommendations-section" id="recommendationsSection" hidden>
+            <h2 class="results-title">Job Recommendations</h2>
+
+            <!-- Resume Profile Summary -->
+            <div class="profile-summary" id="profileSummary">
+                <div class="profile-header">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                    <h3>Your Profile</h3>
+                </div>
+                <div class="profile-details">
+                    <div class="profile-item">
+                        <span class="profile-label">Experience Level</span>
+                        <span class="profile-value" id="profileLevel">-</span>
+                    </div>
+                    <div class="profile-item">
+                        <span class="profile-label">Skills Detected</span>
+                        <span class="profile-value" id="profileSkillCount">-</span>
+                    </div>
+                    <div class="profile-item">
+                        <span class="profile-label">Domains</span>
+                        <span class="profile-value" id="profileDomains">-</span>
+                    </div>
+                </div>
+                <div class="profile-skills" id="profileSkills"></div>
+            </div>
+
+            <!-- Recommendations Count -->
+            <p class="recommendations-count" id="recommendationsCount"></p>
+
+            <!-- Job Cards Grid -->
+            <div class="job-cards-grid" id="jobCardsGrid"></div>
+
+            <button type="button" class="btn-new" id="newAnalysisBtn3">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <polyline points="1 4 1 10 7 10"></polyline>
                     <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>

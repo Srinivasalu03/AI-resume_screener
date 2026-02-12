@@ -949,6 +949,353 @@ textarea::placeholder {
     transform: translateY(0);
 }
 
+/* ===== Results Actions ===== */
+.results-actions {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+}
+
+.btn-recommendations {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 28px;
+    background: linear-gradient(135deg, #7c3aed, #6d28d9);
+    color: var(--white);
+    border: none;
+    border-radius: var(--radius-sm);
+    font-family: inherit;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: var(--shadow);
+}
+
+.btn-recommendations svg {
+    width: 18px;
+    height: 18px;
+}
+
+.btn-recommendations:hover {
+    background: linear-gradient(135deg, #6d28d9, #5b21b6);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-1px);
+}
+
+.btn-recommendations:active {
+    transform: translateY(0);
+}
+
+/* ===== Recommendations Section ===== */
+.recommendations-section {
+    padding: 40px 0 20px;
+    animation: fadeIn 0.4s ease;
+}
+
+/* Profile Summary Card */
+.profile-summary {
+    background: var(--white);
+    border-radius: var(--radius);
+    padding: 28px;
+    box-shadow: var(--shadow-md);
+    border: 1px solid var(--gray-200);
+    margin-bottom: 24px;
+}
+
+.profile-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.profile-header svg {
+    width: 22px;
+    height: 22px;
+    color: var(--primary);
+}
+
+.profile-header h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--gray-800);
+    margin: 0;
+}
+
+.profile-details {
+    display: flex;
+    gap: 32px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+
+.profile-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.profile-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--gray-500);
+}
+
+.profile-value {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--gray-800);
+}
+
+.profile-skills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+/* Recommendations Count */
+.recommendations-count {
+    font-size: 0.9rem;
+    color: var(--gray-600);
+    margin-bottom: 20px;
+    font-weight: 500;
+}
+
+/* Job Cards Grid */
+.job-cards-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+/* Individual Job Card */
+.job-card {
+    background: var(--white);
+    border-radius: var(--radius);
+    padding: 24px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--gray-200);
+    transition: box-shadow 0.2s, transform 0.2s;
+    animation: slideUp 0.3s ease both;
+}
+
+.job-card:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.job-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 12px;
+}
+
+.job-title-section {
+    flex: 1;
+    min-width: 0;
+}
+
+.job-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--gray-800);
+    margin: 0 0 4px;
+    line-height: 1.3;
+}
+
+.job-company {
+    font-size: 0.85rem;
+    color: var(--gray-500);
+    margin: 0;
+}
+
+/* Match Badge */
+.job-match-badge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 60px;
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    flex-shrink: 0;
+}
+
+.job-match-badge.excellent {
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+}
+
+.job-match-badge.excellent .match-value {
+    color: #059669;
+}
+
+.job-match-badge.good {
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+}
+
+.job-match-badge.good .match-value {
+    color: #2563eb;
+}
+
+.job-match-badge.moderate {
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+}
+
+.job-match-badge.moderate .match-value {
+    color: #d97706;
+}
+
+.job-match-badge.low {
+    background: var(--gray-50);
+    border: 1px solid var(--gray-200);
+}
+
+.job-match-badge.low .match-value {
+    color: var(--gray-500);
+}
+
+.match-value {
+    font-size: 1.25rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.match-label {
+    font-size: 0.6rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--gray-400);
+    margin-top: 2px;
+}
+
+/* Job Description */
+.job-description {
+    font-size: 0.88rem;
+    color: var(--gray-600);
+    line-height: 1.5;
+    margin: 0 0 14px;
+}
+
+/* Job Meta */
+.job-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 16px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--gray-100);
+}
+
+.job-meta-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.8rem;
+    color: var(--gray-500);
+}
+
+.job-meta-item svg {
+    flex-shrink: 0;
+    color: var(--gray-400);
+}
+
+/* Job Skills Section */
+.job-skills-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.job-skills-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.skills-group-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.matched-label {
+    color: #059669;
+}
+
+.missing-label {
+    color: #d97706;
+}
+
+.job-skills-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.skill-tag {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.skill-tag.matched {
+    background: #ecfdf5;
+    color: #059669;
+    border: 1px solid #a7f3d0;
+}
+
+.skill-tag.missing {
+    background: #fff7ed;
+    color: #d97706;
+    border: 1px solid #fed7aa;
+}
+
+.skills-none {
+    font-size: 0.8rem;
+    color: var(--gray-400);
+    font-style: italic;
+}
+
+/* Fit Reason */
+.job-fit-reason {
+    font-size: 0.82rem;
+    color: var(--gray-500);
+    font-style: italic;
+    line-height: 1.5;
+    margin: 0;
+    padding-top: 10px;
+    border-top: 1px solid var(--gray-100);
+}
+
 /* ===== Footer ===== */
 .footer {
     margin-top: auto;
@@ -1013,6 +1360,29 @@ textarea::placeholder {
         width: 100%;
         max-width: 280px;
         justify-content: center;
+    }
+
+    .results-actions {
+        flex-direction: column;
+    }
+
+    .btn-recommendations {
+        width: 100%;
+        max-width: 280px;
+        justify-content: center;
+    }
+
+    .profile-details {
+        gap: 16px;
+    }
+
+    .job-card-header {
+        flex-direction: column;
+    }
+
+    .job-meta {
+        flex-direction: column;
+        gap: 8px;
     }
 }
 

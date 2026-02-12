@@ -62,6 +62,50 @@ class HealthCheckResponse(BaseModel):
 
 # ── Rewrite Schemas ──────────────────────────────────────────────────────────
 
+class RecommendationsRequest(BaseModel):
+    """Request body for POST /recommendations."""
+
+    resume_text: str = Field(..., min_length=50, description="Extracted resume text")
+    matched_keywords: List[str] = Field(default=[], description="Keywords from analysis")
+    job_keywords: List[str] = Field(default=[], description="Important JD keywords")
+
+
+class JobRecommendation(BaseModel):
+    """A single job recommendation."""
+
+    title: str = Field(..., description="Job title")
+    company: str = Field(..., description="Company name")
+    company_type: str = Field(..., description="Company type (e.g., AI Startup)")
+    company_size: str = Field(..., description="Company size range")
+    location: str = Field(..., description="Job location")
+    match_score: float = Field(..., ge=0.0, le=100.0, description="Match percentage")
+    salary_range: str = Field(..., description="Estimated salary range")
+    matched_skills: List[str] = Field(default=[], description="Skills you have that match")
+    missing_skills: List[str] = Field(default=[], description="Skills to develop")
+    description: str = Field(..., description="Role description")
+    why_good_fit: str = Field(..., description="Why this is a good fit")
+
+
+class ResumeProfile(BaseModel):
+    """Detected resume profile summary."""
+
+    detected_skills: List[str] = Field(default=[], description="Skills found in resume")
+    detected_roles: List[str] = Field(default=[], description="Role signals detected")
+    experience_level: str = Field(..., description="Detected experience level")
+    domains: List[str] = Field(default=[], description="Domain areas")
+    skill_count: int = Field(..., ge=0, description="Total skills detected")
+
+
+class RecommendationsResponse(BaseModel):
+    """Response from POST /recommendations."""
+
+    success: bool = Field(..., description="Whether recommendations were generated")
+    profile: ResumeProfile = Field(..., description="Detected resume profile")
+    recommendations: List[JobRecommendation] = Field(default=[], description="Job recommendations")
+    total_matched: int = Field(..., ge=0, description="Total recommendations found")
+    message: Optional[str] = Field(default=None, description="Status message")
+
+
 class RewriteRequest(BaseModel):
     """Request body for POST /rewrite."""
 

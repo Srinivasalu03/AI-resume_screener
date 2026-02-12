@@ -30,6 +30,13 @@ const comparisonSection = document.getElementById("comparisonSection");
 const downloadBtn = document.getElementById("downloadBtn");
 const newAnalysisBtn2 = document.getElementById("newAnalysisBtn2");
 
+// Recommendations DOM Elements
+const viewRecommendationsBtn = document.getElementById("viewRecommendationsBtn");
+const viewRecommendationsBtn2 = document.getElementById("viewRecommendationsBtn2");
+const recommendationsLoadingSection = document.getElementById("recommendationsLoadingSection");
+const recommendationsSection = document.getElementById("recommendationsSection");
+const newAnalysisBtn3 = document.getElementById("newAnalysisBtn3");
+
 let selectedFile = null;
 let lastAnalysisData = null; // Stores data needed for rewrite request
 
@@ -349,6 +356,8 @@ function showSection(section) {
     enhancePromptSection.hidden = true; // Always hide unless explicitly shown
     enhanceLoadingSection.hidden = section !== "enhance-loading";
     comparisonSection.hidden = section !== "comparison";
+    recommendationsLoadingSection.hidden = section !== "recommendations-loading";
+    recommendationsSection.hidden = section !== "recommendations";
 
     if (section !== "form") {
         window.scrollTo({ top: 0, behavior: "smooth" });
@@ -382,6 +391,19 @@ function setupButtons() {
     newAnalysisBtn2.addEventListener("click", () => {
         resetToForm();
     });
+
+    // Recommendations buttons
+    viewRecommendationsBtn.addEventListener("click", async () => {
+        await fetchRecommendations();
+    });
+
+    viewRecommendationsBtn2.addEventListener("click", async () => {
+        await fetchRecommendations();
+    });
+
+    newAnalysisBtn3.addEventListener("click", () => {
+        resetToForm();
+    });
 }
 
 function resetToForm() {
@@ -392,6 +414,160 @@ function resetToForm() {
     analyzeBtn.disabled = true;
     lastAnalysisData = null;
     showSection("form");
+}
+
+// ===== Recommendations Flow =====
+async function fetchRecommendations() {
+    if (!lastAnalysisData || !lastAnalysisData.resume_text) {
+        showError("No resume data available. Please analyze a resume first.");
+        return;
+    }
+
+    showSection("recommendations-loading");
+
+    try {
+        const response = await fetch(`${API_BASE}/recommendations`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                resume_text: lastAnalysisData.resume_text,
+                matched_keywords: lastAnalysisData.matched_keywords || [],
+                job_keywords: lastAnalysisData.job_keywords || [],
+            }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            const msg = data.detail || data.error || "Failed to generate recommendations.";
+            throw new Error(msg);
+        }
+
+        displayRecommendations(data);
+        showSection("recommendations");
+    } catch (err) {
+        if (err.name === "TypeError" && err.message === "Failed to fetch") {
+            showError("Cannot connect to the server.");
+        } else {
+            showError(err.message);
+        }
+    }
+}
+
+function displayRecommendations(data) {
+    const { profile, recommendations, total_matched } = data;
+
+    // Profile summary
+    document.getElementById("profileLevel").textContent =
+        profile.experience_level.charAt(0).toUpperCase() + profile.experience_level.slice(1);
+    document.getElementById("profileSkillCount").textContent = profile.skill_count;
+    document.getElementById("profileDomains").textContent =
+        profile.domains.length > 0 ? profile.domains.join(", ") : "General";
+
+    // Profile skills tags
+    const profileSkills = document.getElementById("profileSkills");
+    profileSkills.innerHTML = "";
+    if (profile.detected_skills && profile.detected_skills.length > 0) {
+        profile.detected_skills.slice(0, 15).forEach((skill) => {
+            const tag = document.createElement("span");
+            tag.className = "keyword-tag";
+            tag.textContent = skill;
+            profileSkills.appendChild(tag);
+        });
+    }
+
+    // Recommendations count
+    document.getElementById("recommendationsCount").textContent =
+        `Found ${total_matched} matching role${total_matched !== 1 ? "s" : ""} based on your profile`;
+
+    // Job cards
+    const grid = document.getElementById("jobCardsGrid");
+    grid.innerHTML = "";
+
+    recommendations.forEach((job, index) => {
+        const card = createJobCard(job, index);
+        grid.appendChild(card);
+    });
+}
+
+function createJobCard(job, index) {
+    const card = document.createElement("div");
+    card.className = "job-card";
+    card.style.animationDelay = `${index * 0.05}s`;
+
+    const tier = getMatchTier(job.match_score);
+
+    card.innerHTML = `
+        <div class="job-card-header">
+            <div class="job-title-section">
+                <h3 class="job-title">${escapeHtml(job.title)}</h3>
+                <p class="job-company">${escapeHtml(job.company)} &middot; ${escapeHtml(job.company_type)}</p>
+            </div>
+            <div class="job-match-badge ${tier.className}">
+                <span class="match-value">${Math.round(job.match_score)}%</span>
+                <span class="match-label">match</span>
+            </div>
+        </div>
+        <p class="job-description">${escapeHtml(job.description)}</p>
+        <div class="job-meta">
+            <span class="job-meta-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                    <circle cx="12" cy="10" r="3"></circle>
+                </svg>
+                ${escapeHtml(job.location)}
+            </span>
+            <span class="job-meta-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                    <line x1="12" y1="1" x2="12" y2="23"></line>
+                    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                </svg>
+                ${escapeHtml(job.salary_range)}
+            </span>
+            <span class="job-meta-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="9" cy="7" r="4"></circle>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                </svg>
+                ${escapeHtml(job.company_size)} employees
+            </span>
+        </div>
+        <div class="job-skills-section">
+            <div class="job-skills-group">
+                <span class="skills-group-label matched-label">Your matching skills:</span>
+                <div class="job-skills-tags">
+                    ${job.matched_skills.map(s => `<span class="skill-tag matched">${escapeHtml(s)}</span>`).join("")}
+                    ${job.matched_skills.length === 0 ? '<span class="skills-none">None detected</span>' : ""}
+                </div>
+            </div>
+            ${job.missing_skills.length > 0 ? `
+            <div class="job-skills-group">
+                <span class="skills-group-label missing-label">Skills to develop:</span>
+                <div class="job-skills-tags">
+                    ${job.missing_skills.map(s => `<span class="skill-tag missing">${escapeHtml(s)}</span>`).join("")}
+                </div>
+            </div>
+            ` : ""}
+        </div>
+        <p class="job-fit-reason">${escapeHtml(job.why_good_fit)}</p>
+    `;
+
+    return card;
+}
+
+function getMatchTier(score) {
+    if (score >= 75) return { className: "excellent" };
+    if (score >= 50) return { className: "good" };
+    if (score >= 30) return { className: "moderate" };
+    return { className: "low" };
+}
+
+function escapeHtml(text) {
+    const div = document.createElement("div");
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 // ===== Utilities =====
