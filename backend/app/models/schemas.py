@@ -12,6 +12,25 @@ from pydantic import BaseModel, Field
 
 # ── Response Schemas ─────────────────────────────────────────────────────────
 
+class SectionScore(BaseModel):
+    """Individual section confidence score with explanation."""
+
+    score: Optional[float] = Field(None, ge=0.0, le=100.0, description="Section score (0-100), None if not present")
+    explanation: str = Field(..., description="Why this score was given")
+    matched_elements: List[str] = Field(default=[], description="Strong points found")
+    missing_elements: List[str] = Field(default=[], description="Missing from JD")
+    weak_areas: List[str] = Field(default=[], description="Areas needing improvement")
+
+
+class SectionScores(BaseModel):
+    """All section confidence scores."""
+
+    skills: SectionScore = Field(..., description="Skills section score")
+    experience: SectionScore = Field(..., description="Experience section score")
+    projects: Optional[SectionScore] = Field(default=None, description="Projects section score (if present)")
+    education: SectionScore = Field(..., description="Education section score")
+
+
 class MatchData(BaseModel):
     """Core match analysis results."""
 
@@ -23,6 +42,7 @@ class MatchData(BaseModel):
     resume_word_count: int = Field(..., ge=0, description="Resume word count")
     job_description_word_count: int = Field(..., ge=0, description="JD word count")
     resume_text: Optional[str] = Field(default=None, description="Extracted resume text (for rewrite)")
+    section_scores: Optional[SectionScores] = Field(default=None, description="Per-section confidence scores")
 
 
 class FileMetadata(BaseModel):
@@ -114,6 +134,7 @@ class RewriteRequest(BaseModel):
     matched_keywords: List[str] = Field(default=[], description="Keywords matched in original analysis")
     job_keywords: List[str] = Field(default=[], description="Important JD keywords from original analysis")
     original_score: float = Field(..., ge=0.0, le=100.0, description="Original match score")
+    role_preference: Optional[str] = Field(default=None, description="Template: startup_tech, startup_non_tech, mnc_tech, mnc_non_tech")
 
 
 class RewriteResponse(BaseModel):
@@ -142,6 +163,7 @@ def create_success_response(
     file_size_kb: float,
     resume_text: Optional[str] = None,
     job_keywords: Optional[List[str]] = None,
+    section_scores: Optional[SectionScores] = None,
 ) -> AnalysisResponse:
     """Build a standardized success response."""
     return AnalysisResponse(
@@ -155,6 +177,7 @@ def create_success_response(
             resume_word_count=resume_word_count,
             job_description_word_count=job_word_count,
             resume_text=resume_text,
+            section_scores=section_scores,
         ),
         metadata=FileMetadata(
             filename=filename,

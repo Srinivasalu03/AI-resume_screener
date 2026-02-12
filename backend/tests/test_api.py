@@ -292,3 +292,70 @@ class TestRecommendationsEndpoint:
             json={"resume_text": "Too short"},
         )
         assert resp.status_code == 422
+
+
+# ── /rewrite with role_preference ────────────────────────────────────────
+
+
+class TestRewriteWithTemplate:
+    SAMPLE_RESUME_TEXT = (
+        "John Doe\njohn@email.com\n\n"
+        "Summary\nExperienced software developer with 5 years in web development.\n\n"
+        "Skills\nPython, JavaScript, React, SQL, Git, Docker\n\n"
+        "Experience\n"
+        "- Worked on building REST APIs using Flask and Django\n"
+        "- Helped with database schemas for PostgreSQL\n"
+        "- Participated in agile projects\n\n"
+        "Education\nB.S. Computer Science, State University, 2018"
+    )
+
+    def test_rewrite_with_startup_tech_template(self):
+        """POST /rewrite with role_preference should apply template."""
+        resp = client.post(
+            "/rewrite",
+            json={
+                "resume_text": self.SAMPLE_RESUME_TEXT,
+                "job_description": "Senior Python Developer with FastAPI, Kubernetes, AWS experience.",
+                "matched_keywords": ["python", "docker"],
+                "job_keywords": ["python", "fastapi", "kubernetes", "aws", "docker"],
+                "original_score": 40.0,
+                "role_preference": "startup_tech",
+            },
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["success"] is True
+        # Template application should be mentioned in improvements
+        assert any("template" in change.lower() or "startup" in change.lower()
+                    for change in data["improvements_summary"])
+
+    def test_rewrite_with_mnc_tech_template(self):
+        """MNC tech template should work."""
+        resp = client.post(
+            "/rewrite",
+            json={
+                "resume_text": self.SAMPLE_RESUME_TEXT,
+                "job_description": "Java Developer with Spring Boot and enterprise experience.",
+                "matched_keywords": ["java"],
+                "job_keywords": ["java", "spring boot", "enterprise", "microservices"],
+                "original_score": 30.0,
+                "role_preference": "mnc_tech",
+            },
+        )
+        assert resp.status_code == 200
+        assert resp.json()["success"] is True
+
+    def test_rewrite_without_template_still_works(self):
+        """Omitting role_preference should work as before."""
+        resp = client.post(
+            "/rewrite",
+            json={
+                "resume_text": self.SAMPLE_RESUME_TEXT,
+                "job_description": "Python developer with 5 years experience in FastAPI.",
+                "matched_keywords": ["python"],
+                "job_keywords": ["python", "fastapi"],
+                "original_score": 35.0,
+            },
+        )
+        assert resp.status_code == 200
+        assert resp.json()["success"] is True

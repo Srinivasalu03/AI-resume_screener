@@ -11,9 +11,10 @@ All modifications preserve truthful content — nothing is fabricated.
 
 import re
 import logging
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
+
 
 # Common resume section headers (case-insensitive matching)
 SECTION_PATTERNS = {
@@ -278,6 +279,7 @@ def rewrite_resume(
     job_description: str,
     matched_keywords: List[str],
     job_keywords: List[str],
+    role_preference: Optional[str] = None,
 ) -> Dict:
     """
     Main resume rewriting orchestrator.
@@ -363,8 +365,22 @@ def rewrite_resume(
         all_changes.append(f"Added new Skills section with {len(missing_keywords[:8])} keywords")
         all_keywords_added.extend(missing_keywords[:8])
 
-    # Reassemble sections in logical order
-    section_order = ["header", "summary", "skills", "experience", "projects", "education"]
+    # Apply role-based template if specified
+    template_config = None
+    if role_preference:
+        from app.services.template_engine import get_template, apply_template
+        template_config = get_template(role_preference)
+        if template_config:
+            sections, template_changes = apply_template(
+                sections, template_config, job_keywords, remaining_missing
+            )
+            all_changes.extend(template_changes)
+
+    # Reassemble sections in logical order (use template order if applied)
+    if template_config:
+        section_order = template_config["section_order"]
+    else:
+        section_order = ["header", "summary", "skills", "experience", "projects", "education"]
     ordered_parts = []
     used_sections = set()
 

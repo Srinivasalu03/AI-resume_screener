@@ -39,6 +39,7 @@ const newAnalysisBtn3 = document.getElementById("newAnalysisBtn3");
 
 let selectedFile = null;
 let lastAnalysisData = null; // Stores data needed for rewrite request
+let selectedRoleTemplate = null; // Selected role template for enhancement
 
 // ===== Initialization =====
 document.addEventListener("DOMContentLoaded", () => {
@@ -46,6 +47,7 @@ document.addEventListener("DOMContentLoaded", () => {
     setupTextarea();
     setupFormSubmit();
     setupButtons();
+    setupRoleSelection();
 });
 
 // ===== Drop Zone =====
@@ -242,6 +244,11 @@ function displayResults(data) {
         original_score: data.data.score,
     };
 
+    // Display section scores if available
+    if (data.data.section_scores) {
+        displaySectionScores(data.data.section_scores);
+    }
+
     // Show the enhance prompt after a short delay (only if resume_text is available)
     if (lastAnalysisData.resume_text) {
         setTimeout(() => {
@@ -285,10 +292,15 @@ async function enhanceResume() {
     showSection("enhance-loading");
 
     try {
+        const requestBody = { ...lastAnalysisData };
+        if (selectedRoleTemplate) {
+            requestBody.role_preference = selectedRoleTemplate;
+        }
+
         const response = await fetch(`${API_BASE}/rewrite`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(lastAnalysisData),
+            body: JSON.stringify(requestBody),
         });
 
         const data = await response.json();
@@ -416,6 +428,23 @@ function resetToForm() {
     charCount.classList.remove("valid");
     analyzeBtn.disabled = true;
     lastAnalysisData = null;
+    selectedRoleTemplate = null;
+
+    // Reset role selection
+    document.querySelectorAll(".role-card").forEach(c => c.classList.remove("selected"));
+    if (enhanceBtn) {
+        enhanceBtn.disabled = true;
+        enhanceBtn.querySelector(".btn-text")?.remove();
+        enhanceBtn.innerHTML = `
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+            </svg>
+            Select a Template to Enhance`;
+    }
+
+    // Reset section scores
+    const sectionScoresContainer = document.getElementById("sectionScoresContainer");
+    if (sectionScoresContainer) sectionScoresContainer.hidden = true;
 
     // Reset inline recommendations
     const inlineSection = document.getElementById("inlineRecommendations");
@@ -641,6 +670,127 @@ function escapeHtml(text) {
     const div = document.createElement("div");
     div.textContent = text;
     return div.innerHTML;
+}
+
+// ===== Section Scores Display =====
+function displaySectionScores(sectionScores) {
+    const container = document.getElementById("sectionScoresContainer");
+    const list = document.getElementById("sectionScoresList");
+    if (!container || !list) return;
+
+    list.innerHTML = "";
+
+    const sections = [
+        { key: "skills", label: "Skills", icon: "\u2699\uFE0F" },
+        { key: "experience", label: "Experience", icon: "\uD83D\uDCBC" },
+        { key: "projects", label: "Projects", icon: "\uD83D\uDEE0\uFE0F" },
+        { key: "education", label: "Education", icon: "\uD83C\uDF93" },
+    ];
+
+    sections.forEach(({ key, label, icon }) => {
+        const data = sectionScores[key];
+        const isNA = !data || data.score === null || data.score === undefined;
+        const score = isNA ? null : data.score;
+        const tier = isNA ? "na" : getSectionTier(score);
+
+        const item = document.createElement("div");
+        item.className = `section-score-item ${tier}`;
+
+        item.innerHTML = `
+            <div class="section-score-header" onclick="toggleSectionDetail('${key}')">
+                <div class="section-score-label">
+                    <span class="section-icon">${icon}</span>
+                    <span class="section-name">${label}</span>
+                </div>
+                <div class="section-score-value-row">
+                    <span class="section-score-number">${isNA ? "N/A" : Math.round(score) + "%"}</span>
+                    <div class="section-progress-bar">
+                        <div class="section-progress-fill ${tier}" style="width: ${isNA ? 0 : score}%"></div>
+                    </div>
+                    <button class="section-expand-btn" aria-label="Toggle details">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                            <polyline points="6 9 12 15 18 9"></polyline>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div class="section-detail" id="sectionDetail-${key}" hidden>
+                <p class="section-explanation">${escapeHtml(data ? data.explanation : "Section not found")}</p>
+                ${data && data.matched_elements && data.matched_elements.length > 0 ? `
+                <div class="section-elements matched">
+                    <strong>Strong points:</strong>
+                    <ul>${data.matched_elements.map(el => `<li>${escapeHtml(el)}</li>`).join("")}</ul>
+                </div>` : ""}
+                ${data && data.missing_elements && data.missing_elements.length > 0 ? `
+                <div class="section-elements missing">
+                    <strong>Missing from JD:</strong>
+                    <ul>${data.missing_elements.map(el => `<li>${escapeHtml(el)}</li>`).join("")}</ul>
+                </div>` : ""}
+                ${data && data.weak_areas && data.weak_areas.length > 0 ? `
+                <div class="section-elements weak">
+                    <strong>Areas to improve:</strong>
+                    <ul>${data.weak_areas.map(el => `<li>${escapeHtml(el)}</li>`).join("")}</ul>
+                </div>` : ""}
+            </div>
+        `;
+
+        list.appendChild(item);
+    });
+
+    container.hidden = false;
+}
+
+function getSectionTier(score) {
+    if (score >= 80) return "excellent";
+    if (score >= 60) return "good";
+    if (score >= 40) return "moderate";
+    return "low";
+}
+
+function toggleSectionDetail(key) {
+    const detail = document.getElementById(`sectionDetail-${key}`);
+    if (detail) {
+        detail.hidden = !detail.hidden;
+        const item = detail.closest(".section-score-item");
+        if (item) item.classList.toggle("expanded", !detail.hidden);
+    }
+}
+
+// ===== Role Selection =====
+function setupRoleSelection() {
+    const roleCards = document.querySelectorAll(".role-card");
+
+    roleCards.forEach((card) => {
+        card.addEventListener("click", () => {
+            // Toggle selection
+            const role = card.dataset.role;
+
+            if (selectedRoleTemplate === role) {
+                // Deselect
+                card.classList.remove("selected");
+                selectedRoleTemplate = null;
+                enhanceBtn.disabled = true;
+                enhanceBtn.innerHTML = `
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                    </svg>
+                    Select a Template to Enhance`;
+            } else {
+                // Select this card
+                roleCards.forEach(c => c.classList.remove("selected"));
+                card.classList.add("selected");
+                selectedRoleTemplate = role;
+                enhanceBtn.disabled = false;
+
+                const templateName = card.querySelector("h4").textContent;
+                enhanceBtn.innerHTML = `
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                    </svg>
+                    Enhance with ${escapeHtml(templateName)} Template`;
+            }
+        });
+    });
 }
 
 // ===== Utilities =====

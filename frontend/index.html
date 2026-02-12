@@ -206,6 +206,19 @@
                 </div>
             </div>
 
+            <!-- Section Breakdown -->
+            <div class="result-card section-scores-card" id="sectionScoresContainer" hidden>
+                <h3>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="20" x2="18" y2="10"></line>
+                        <line x1="12" y1="20" x2="12" y2="4"></line>
+                        <line x1="6" y1="20" x2="6" y2="14"></line>
+                    </svg>
+                    Section Breakdown
+                </h3>
+                <div class="section-scores-list" id="sectionScoresList"></div>
+            </div>
+
             <!-- Inline Job Recommendations (auto-loaded after analysis) -->
             <div class="inline-recommendations" id="inlineRecommendations" hidden>
                 <div class="inline-recommendations-header">
@@ -272,13 +285,58 @@
                     </svg>
                 </div>
                 <h3>Enhance Your Resume</h3>
-                <p class="enhance-description">Our AI can rewrite your resume to better match this job description by adding missing keywords, improving bullet phrasing, and restructuring content. <strong>No content will be fabricated.</strong></p>
+                <p class="enhance-description">Choose a template style that matches your target role. Our AI will rewrite your resume with the right tone, verbs, and keyword density. <strong>No content will be fabricated.</strong></p>
+
+                <!-- Role Selection Grid -->
+                <div class="role-selection-grid" id="roleSelectionGrid">
+                    <div class="role-card" data-role="startup_tech">
+                        <div class="role-card-icon">&#x1F680;</div>
+                        <h4>Startup Tech</h4>
+                        <p class="role-card-desc">Fast-paced, impact-focused, technical depth</p>
+                        <ul class="role-features">
+                            <li>Action-oriented verbs (Built, Shipped, Scaled)</li>
+                            <li>Projects before experience</li>
+                            <li>High keyword density</li>
+                        </ul>
+                    </div>
+                    <div class="role-card" data-role="startup_non_tech">
+                        <div class="role-card-icon">&#x1F4C8;</div>
+                        <h4>Startup Non-Tech</h4>
+                        <p class="role-card-desc">Growth-focused, achievement-outcome bullets</p>
+                        <ul class="role-features">
+                            <li>Growth verbs (Drove, Accelerated, Grew)</li>
+                            <li>Revenue and metric emphasis</li>
+                            <li>Cross-functional highlights</li>
+                        </ul>
+                    </div>
+                    <div class="role-card" data-role="mnc_tech">
+                        <div class="role-card-icon">&#x1F3E2;</div>
+                        <h4>MNC Tech</h4>
+                        <p class="role-card-desc">Process-oriented, formal, responsibility-scope</p>
+                        <ul class="role-features">
+                            <li>Formal verbs (Developed, Implemented, Designed)</li>
+                            <li>Experience before projects</li>
+                            <li>Enterprise-scale emphasis</li>
+                        </ul>
+                    </div>
+                    <div class="role-card" data-role="mnc_non_tech">
+                        <div class="role-card-icon">&#x1F4BC;</div>
+                        <h4>MNC Non-Tech</h4>
+                        <p class="role-card-desc">Corporate, strategic-impact, leadership focus</p>
+                        <ul class="role-features">
+                            <li>Leadership verbs (Directed, Oversaw, Managed)</li>
+                            <li>Stakeholder management focus</li>
+                            <li>Strategic impact emphasis</li>
+                        </ul>
+                    </div>
+                </div>
+
                 <div class="enhance-buttons">
-                    <button type="button" class="btn-enhance" id="enhanceBtn">
+                    <button type="button" class="btn-enhance" id="enhanceBtn" disabled>
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
                         </svg>
-                        Enhance My Resume
+                        Select a Template to Enhance
                     </button>
                     <button type="button" class="btn-no-thanks" id="noThanksBtn">No Thanks</button>
                 </div>

@@ -33,6 +33,7 @@ from app.services.explainer import generate_explanation
 from app.services.resume_rewriter import rewrite_resume
 from app.services.pdf_generator import generate_resume_pdf
 from app.services.job_recommender import generate_recommendations
+from app.services.section_scorer import calculate_section_scores
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +42,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="AI Resume Screener API",
     description="Match resumes to job descriptions using NLP (TF-IDF + cosine similarity)",
-    version="3.0.0",
+    version="4.0.0",
 )
 
 app.add_middleware(
@@ -208,7 +209,14 @@ async def analyze_resume(
             job_keywords=score_data.get("job_keywords", []),
         )
 
-        # Step 4: Build and return response (now includes resume_text and job_keywords)
+        # Step 4: Calculate per-section confidence scores
+        section_scores_data = calculate_section_scores(
+            resume_text=resume_text,
+            job_description=job_description,
+            job_keywords=score_data.get("job_keywords", []),
+        )
+
+        # Step 5: Build and return response
         return create_success_response(
             score=score_data["score"],
             explanation=explanation,
@@ -219,6 +227,7 @@ async def analyze_resume(
             file_size_kb=file_size / 1024,
             resume_text=resume_text,
             job_keywords=score_data.get("job_keywords", []),
+            section_scores=section_scores_data,
         )
 
     except HTTPException:
@@ -240,6 +249,7 @@ async def rewrite_resume_endpoint(request: RewriteRequest):
             job_description=request.job_description,
             matched_keywords=request.matched_keywords,
             job_keywords=request.job_keywords,
+            role_preference=request.role_preference,
         )
 
         # Step 2: Re-run analysis on rewritten text
