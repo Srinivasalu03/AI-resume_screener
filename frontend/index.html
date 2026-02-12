@@ -206,14 +206,52 @@
                 </div>
             </div>
 
-            <div class="results-actions">
-                <button type="button" class="btn-recommendations" id="viewRecommendationsBtn">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
-                        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+            <!-- Inline Job Recommendations (auto-loaded after analysis) -->
+            <div class="inline-recommendations" id="inlineRecommendations" hidden>
+                <div class="inline-recommendations-header">
+                    <div class="inline-recommendations-title">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+                            <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+                        </svg>
+                        <h3>Recommended Jobs for Your Resume</h3>
+                    </div>
+                    <span class="inline-profile-badge" id="inlineProfileBadge"></span>
+                </div>
+
+                <!-- Loading state -->
+                <div class="inline-recommendations-loading" id="inlineRecommendationsLoading">
+                    <div class="inline-loader">
+                        <div class="inline-spinner"></div>
+                        <span>Finding matching roles...</span>
+                    </div>
+                </div>
+
+                <!-- Empty state -->
+                <div class="inline-recommendations-empty" id="inlineRecommendationsEmpty" hidden>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="32" height="32">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                     </svg>
-                    View Job Recommendations
-                </button>
+                    <p>No matching roles found for your profile yet. Try enhancing your resume to unlock more matches.</p>
+                </div>
+
+                <!-- Content -->
+                <div id="inlineRecommendationsContent" hidden>
+                    <div class="job-cards-grid" id="inlineJobCardsGrid"></div>
+                    <div class="inline-recommendations-footer">
+                        <button type="button" class="btn-recommendations" id="viewAllRecommendationsBtn">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+                                <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+                            </svg>
+                            View Full Recommendations Page
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="results-actions">
                 <button type="button" class="btn-new" id="newAnalysisBtn">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <polyline points="1 4 1 10 7 10"></polyline>
@@ -348,7 +386,7 @@
 
         <!-- Job Recommendations Section -->
         <section class="recommendations-section" id="recommendationsSection" hidden>
-            <h2 class="results-title">Job Recommendations</h2>
+            <h2 class="results-title">Recommended Jobs for Your Resume</h2>
 
             <!-- Resume Profile Summary -->
             <div class="profile-summary" id="profileSummary">

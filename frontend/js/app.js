@@ -31,8 +31,8 @@ const downloadBtn = document.getElementById("downloadBtn");
 const newAnalysisBtn2 = document.getElementById("newAnalysisBtn2");
 
 // Recommendations DOM Elements
-const viewRecommendationsBtn = document.getElementById("viewRecommendationsBtn");
 const viewRecommendationsBtn2 = document.getElementById("viewRecommendationsBtn2");
+const viewAllRecommendationsBtn = document.getElementById("viewAllRecommendationsBtn");
 const recommendationsLoadingSection = document.getElementById("recommendationsLoadingSection");
 const recommendationsSection = document.getElementById("recommendationsSection");
 const newAnalysisBtn3 = document.getElementById("newAnalysisBtn3");
@@ -247,6 +247,9 @@ function displayResults(data) {
         setTimeout(() => {
             enhancePromptSection.hidden = false;
         }, 600);
+
+        // Auto-fetch job recommendations in the background
+        fetchRecommendationsInline();
     }
 }
 
@@ -393,12 +396,12 @@ function setupButtons() {
     });
 
     // Recommendations buttons
-    viewRecommendationsBtn.addEventListener("click", async () => {
+    viewRecommendationsBtn2.addEventListener("click", async () => {
         await fetchRecommendations();
     });
 
-    viewRecommendationsBtn2.addEventListener("click", async () => {
-        await fetchRecommendations();
+    viewAllRecommendationsBtn.addEventListener("click", () => {
+        showSection("recommendations");
     });
 
     newAnalysisBtn3.addEventListener("click", () => {
@@ -413,10 +416,17 @@ function resetToForm() {
     charCount.classList.remove("valid");
     analyzeBtn.disabled = true;
     lastAnalysisData = null;
+
+    // Reset inline recommendations
+    const inlineSection = document.getElementById("inlineRecommendations");
+    if (inlineSection) inlineSection.hidden = true;
+
     showSection("form");
 }
 
 // ===== Recommendations Flow =====
+
+// Full-page navigation (from button clicks)
 async function fetchRecommendations() {
     if (!lastAnalysisData || !lastAnalysisData.resume_text) {
         showError("No resume data available. Please analyze a resume first.");
@@ -426,23 +436,7 @@ async function fetchRecommendations() {
     showSection("recommendations-loading");
 
     try {
-        const response = await fetch(`${API_BASE}/recommendations`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                resume_text: lastAnalysisData.resume_text,
-                matched_keywords: lastAnalysisData.matched_keywords || [],
-                job_keywords: lastAnalysisData.job_keywords || [],
-            }),
-        });
-
-        const data = await response.json();
-
-        if (!response.ok || !data.success) {
-            const msg = data.detail || data.error || "Failed to generate recommendations.";
-            throw new Error(msg);
-        }
-
+        const data = await _callRecommendationsAPI();
         displayRecommendations(data);
         showSection("recommendations");
     } catch (err) {
@@ -452,6 +446,76 @@ async function fetchRecommendations() {
             showError(err.message);
         }
     }
+}
+
+// Inline fetch (auto-triggered after analysis, renders below results)
+async function fetchRecommendationsInline() {
+    const inlineSection = document.getElementById("inlineRecommendations");
+    const inlineLoading = document.getElementById("inlineRecommendationsLoading");
+    const inlineContent = document.getElementById("inlineRecommendationsContent");
+    const inlineEmpty = document.getElementById("inlineRecommendationsEmpty");
+
+    if (!inlineSection) return;
+
+    inlineSection.hidden = false;
+    inlineLoading.hidden = false;
+    inlineContent.hidden = true;
+    inlineEmpty.hidden = true;
+
+    try {
+        const data = await _callRecommendationsAPI();
+
+        inlineLoading.hidden = true;
+
+        if (!data.recommendations || data.recommendations.length === 0) {
+            inlineEmpty.hidden = false;
+            return;
+        }
+
+        // Populate inline profile summary
+        const profileBadge = document.getElementById("inlineProfileBadge");
+        profileBadge.textContent =
+            `${data.profile.experience_level.charAt(0).toUpperCase() + data.profile.experience_level.slice(1)} ` +
+            `\u00B7 ${data.profile.skill_count} skills ` +
+            `\u00B7 ${data.profile.domains.slice(0, 3).join(", ")}`;
+
+        // Populate inline job cards
+        const grid = document.getElementById("inlineJobCardsGrid");
+        grid.innerHTML = "";
+        data.recommendations.forEach((job, index) => {
+            const card = createJobCard(job, index);
+            grid.appendChild(card);
+        });
+
+        inlineContent.hidden = false;
+
+        // Also populate the full-page view in case user clicks "View All"
+        displayRecommendations(data);
+    } catch {
+        inlineLoading.hidden = true;
+        inlineEmpty.hidden = false;
+    }
+}
+
+async function _callRecommendationsAPI() {
+    const response = await fetch(`${API_BASE}/recommendations`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            resume_text: lastAnalysisData.resume_text,
+            matched_keywords: lastAnalysisData.matched_keywords || [],
+            job_keywords: lastAnalysisData.job_keywords || [],
+        }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok || !data.success) {
+        const msg = data.detail || data.error || "Failed to generate recommendations.";
+        throw new Error(msg);
+    }
+
+    return data;
 }
 
 function displayRecommendations(data) {
@@ -483,6 +547,15 @@ function displayRecommendations(data) {
     // Job cards
     const grid = document.getElementById("jobCardsGrid");
     grid.innerHTML = "";
+
+    if (recommendations.length === 0) {
+        grid.innerHTML = `
+            <div class="recommendations-empty">
+                <p>No matching roles found for your profile. Try broadening your resume skills.</p>
+            </div>
+        `;
+        return;
+    }
 
     recommendations.forEach((job, index) => {
         const card = createJobCard(job, index);
