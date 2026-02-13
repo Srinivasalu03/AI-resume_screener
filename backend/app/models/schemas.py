@@ -60,6 +60,7 @@ class AnalysisResponse(BaseModel):
     data: MatchData = Field(..., description="Analysis results")
     metadata: FileMetadata = Field(..., description="File information")
     message: Optional[str] = Field(default=None, description="Status message")
+    layout_id: Optional[str] = Field(default=None, description="Layout cache ID for format-preserving enhancement")
 
 
 class ErrorResponse(BaseModel):
@@ -104,6 +105,9 @@ class JobRecommendation(BaseModel):
     missing_skills: List[str] = Field(default=[], description="Skills to develop")
     description: str = Field(..., description="Role description")
     why_good_fit: str = Field(..., description="Why this is a good fit")
+    source: str = Field(..., description="Platform/source (e.g., LinkedIn Jobs, Company Careers)")
+    apply_url: str = Field(..., description="Direct application URL")
+    source_type: str = Field(default="simulated", description="listing_type: simulated or live")
 
 
 class ResumeProfile(BaseModel):
@@ -135,6 +139,7 @@ class RewriteRequest(BaseModel):
     job_keywords: List[str] = Field(default=[], description="Important JD keywords from original analysis")
     original_score: float = Field(..., ge=0.0, le=100.0, description="Original match score")
     role_preference: Optional[str] = Field(default=None, description="Template: startup_tech, startup_non_tech, mnc_tech, mnc_non_tech")
+    layout_id: Optional[str] = Field(default=None, description="Layout cache ID for format-preserving PDF")
 
 
 class RewriteResponse(BaseModel):
@@ -148,6 +153,8 @@ class RewriteResponse(BaseModel):
     rewritten_resume_preview: str = Field(..., description="Preview of rewritten resume")
     download_id: str = Field(..., description="UUID for PDF download")
     updated_analysis: MatchData = Field(..., description="Full re-analysis of rewritten resume")
+    formatting_preserved: bool = Field(default=False, description="Whether original formatting was preserved")
+    formatting_notes: List[str] = Field(default=[], description="Notes about formatting decisions")
     message: Optional[str] = Field(default=None, description="Status message")
 
 
@@ -220,6 +227,7 @@ def create_success_response(
     resume_text: Optional[str] = None,
     job_keywords: Optional[List[str]] = None,
     section_scores: Optional[SectionScores] = None,
+    layout_id: Optional[str] = None,
 ) -> AnalysisResponse:
     """Build a standardized success response."""
     return AnalysisResponse(
@@ -241,4 +249,5 @@ def create_success_response(
             upload_timestamp=datetime.now(timezone.utc),
         ),
         message="Analysis completed successfully",
+        layout_id=layout_id,
     )

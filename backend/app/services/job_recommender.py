@@ -9,11 +9,72 @@ to produce ranked recommendations with match percentages.
 No paid APIs or live scraping — all job data is simulated realistically.
 """
 
+import hashlib
 import re
 import logging
+import urllib.parse
 from typing import Dict, List, Optional, Set, Tuple
 
 logger = logging.getLogger(__name__)
+
+
+# ── Job Platform / Source Definitions ─────────────────────────────────────────
+
+_JOB_PLATFORMS = [
+    {
+        "name": "LinkedIn Jobs",
+        "url_template": "https://www.linkedin.com/jobs/search/?keywords={query}&location={location}",
+        "badge": "linkedin",
+    },
+    {
+        "name": "Company Careers Page",
+        "url_template": "https://{company_slug}.com/careers",
+        "badge": "company",
+    },
+    {
+        "name": "Wellfound (AngelList)",
+        "url_template": "https://wellfound.com/jobs?query={query}",
+        "badge": "wellfound",
+    },
+    {
+        "name": "Internshala",
+        "url_template": "https://internshala.com/jobs/{query_slug}",
+        "badge": "internshala",
+    },
+    {
+        "name": "Indeed",
+        "url_template": "https://www.indeed.com/jobs?q={query}&l={location}",
+        "badge": "indeed",
+    },
+    {
+        "name": "Glassdoor",
+        "url_template": "https://www.glassdoor.com/Job/{query_slug}-jobs.htm",
+        "badge": "glassdoor",
+    },
+]
+
+
+def _build_apply_url(platform: dict, title: str, company: dict) -> str:
+    """Build a simulated apply URL from the platform template."""
+    query = urllib.parse.quote_plus(title)
+    query_slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
+    company_slug = re.sub(r"[^a-z0-9]+", "-", company["name"].lower()).strip("-")
+    location = urllib.parse.quote_plus(company.get("location", "").split("(")[0].strip())
+
+    url = platform["url_template"].format(
+        query=query,
+        query_slug=query_slug,
+        company_slug=company_slug,
+        location=location,
+    )
+    return url
+
+
+def _pick_platform(title: str, company: dict, index: int) -> dict:
+    """Deterministically pick a job platform based on title + company + index."""
+    seed = hashlib.md5(f"{title}:{company['name']}:{index}".encode()).hexdigest()
+    idx = int(seed[:8], 16) % len(_JOB_PLATFORMS)
+    return _JOB_PLATFORMS[idx]
 
 
 # ── Experience Level Detection ──────────────────────────────────────────────
@@ -566,6 +627,10 @@ def generate_recommendations(
         elif level == "manager":
             title = f"Lead {title}"
 
+        # Pick a platform and build an apply URL
+        platform = _pick_platform(title, company, len(recommendations))
+        apply_url = _build_apply_url(platform, title, company)
+
         recommendations.append({
             "title": title,
             "company": company["name"],
@@ -578,6 +643,9 @@ def generate_recommendations(
             "missing_skills": missing[:5],
             "description": template["description"],
             "why_good_fit": _generate_fit_reason(score, matched, profile),
+            "source": platform["name"],
+            "apply_url": apply_url,
+            "source_type": "simulated",
         })
 
     # Sort by match score descending

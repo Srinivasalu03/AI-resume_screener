@@ -257,6 +257,7 @@ function displayResults(data) {
         matched_keywords: data.data.matched_keywords || [],
         job_keywords: data.data.job_keywords || [],
         original_score: data.data.score,
+        layout_id: data.layout_id || null,
     };
 
     // Display section scores if available
@@ -375,6 +376,32 @@ function displayComparison(data) {
 
     // Download link
     downloadBtn.href = `${API_BASE}/download/${data.download_id}`;
+
+    // Formatting preservation indicator
+    const formatIndicator = document.getElementById("formatIndicator");
+    const formatTitle = document.getElementById("formatIndicatorTitle");
+    const formatNotesList = document.getElementById("formatNotesList");
+
+    if (data.formatting_preserved) {
+        formatIndicator.hidden = false;
+        formatTitle.textContent = "Original Formatting Preserved";
+        formatIndicator.classList.remove("format-fallback");
+        formatIndicator.classList.add("format-preserved");
+    } else {
+        formatIndicator.hidden = false;
+        formatTitle.textContent = "Standard Formatting Applied";
+        formatIndicator.classList.remove("format-preserved");
+        formatIndicator.classList.add("format-fallback");
+    }
+
+    formatNotesList.innerHTML = "";
+    if (data.formatting_notes && data.formatting_notes.length > 0) {
+        data.formatting_notes.forEach((note) => {
+            const li = document.createElement("li");
+            li.textContent = note;
+            formatNotesList.appendChild(li);
+        });
+    }
 }
 
 // ===== Section Management =====
@@ -660,6 +687,11 @@ function createJobCard(job, index) {
 
     const tier = getMatchTier(job.match_score);
 
+    const sourceBadgeClass = getSourceBadgeClass(job.source || "");
+    const sourceLabel = job.source || "Job Board";
+    const applyUrl = job.apply_url || "#";
+    const isSimulated = job.source_type === "simulated";
+
     card.innerHTML = `
         <div class="job-card-header">
             <div class="job-title-section">
@@ -670,6 +702,10 @@ function createJobCard(job, index) {
                 <span class="match-value">${Math.round(job.match_score)}%</span>
                 <span class="match-label">match</span>
             </div>
+        </div>
+        <div class="job-source-row">
+            <span class="job-source-badge ${sourceBadgeClass}">${escapeHtml(sourceLabel)}</span>
+            ${isSimulated ? '<span class="job-source-note">External listing (simulated)</span>' : ""}
         </div>
         <p class="job-description">${escapeHtml(job.description)}</p>
         <div class="job-meta">
@@ -714,10 +750,31 @@ function createJobCard(job, index) {
             </div>
             ` : ""}
         </div>
-        <p class="job-fit-reason">${escapeHtml(job.why_good_fit)}</p>
+        <div class="job-card-footer">
+            <p class="job-fit-reason">${escapeHtml(job.why_good_fit)}</p>
+            <a class="btn-apply" href="${escapeHtml(applyUrl)}" target="_blank" rel="noopener noreferrer">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                    <polyline points="15 3 21 3 21 9"></polyline>
+                    <line x1="10" y1="14" x2="21" y2="3"></line>
+                </svg>
+                Apply on ${escapeHtml(sourceLabel)}
+            </a>
+        </div>
     `;
 
     return card;
+}
+
+function getSourceBadgeClass(source) {
+    const s = source.toLowerCase();
+    if (s.includes("linkedin")) return "source-linkedin";
+    if (s.includes("wellfound") || s.includes("angellist")) return "source-wellfound";
+    if (s.includes("internshala")) return "source-internshala";
+    if (s.includes("indeed")) return "source-indeed";
+    if (s.includes("glassdoor")) return "source-glassdoor";
+    if (s.includes("company") || s.includes("careers")) return "source-company";
+    return "source-default";
 }
 
 function getMatchTier(score) {
