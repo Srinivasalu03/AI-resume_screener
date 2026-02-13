@@ -41,8 +41,39 @@ from app.services.job_recommender import generate_recommendations
 from app.services.section_scorer import calculate_section_scores
 from app.services.cover_letter_generator import generate_cover_letter, generate_cover_letter_pdf
 from app.services.ats_checker import check_ats_compatibility
+from app.services.format_preserver import extract_layout, generate_format_preserved_pdf, LayoutMetadata
 
 logger = logging.getLogger(__name__)
+
+# ── Layout Cache (in-memory, keyed by layout_id) ────────────────────────────
+# Stores extracted layout metadata so the /rewrite endpoint can use it.
+# Entries expire after LAYOUT_CACHE_TTL seconds.
+_layout_cache: dict[str, tuple[LayoutMetadata, float]] = {}
+LAYOUT_CACHE_TTL = 3600  # 1 hour
+
+
+def _cache_layout(layout: LayoutMetadata) -> str:
+    """Store layout in cache and return its ID."""
+    layout_id = uuid.uuid4().hex
+    _layout_cache[layout_id] = (layout, time.time())
+    # Evict expired entries
+    cutoff = time.time() - LAYOUT_CACHE_TTL
+    expired = [k for k, (_, ts) in _layout_cache.items() if ts < cutoff]
+    for k in expired:
+        _layout_cache.pop(k, None)
+    return layout_id
+
+
+def _get_cached_layout(layout_id: str) -> LayoutMetadata | None:
+    """Retrieve layout from cache if still valid."""
+    entry = _layout_cache.get(layout_id)
+    if entry is None:
+        return None
+    layout, ts = entry
+    if time.time() - ts > LAYOUT_CACHE_TTL:
+        _layout_cache.pop(layout_id, None)
+        return None
+    return layout
 
 # ── App Setup ────────────────────────────────────────────────────────────────
 
@@ -206,6 +237,10 @@ async def analyze_resume(
                 detail="Could not extract enough text from the PDF. It may be image-based or empty.",
             )
 
+        # Step 1b: Extract layout metadata for format-preserving enhancement
+        layout = extract_layout(file_path)
+        layout_id = _cache_layout(layout)
+
         # Step 2: Calculate match score via NLP
         score_data = calculate_match_score(resume_text, job_description)
 
@@ -235,6 +270,7 @@ async def analyze_resume(
             resume_text=resume_text,
             job_keywords=score_data.get("job_keywords", []),
             section_scores=section_scores_data,
+            layout_id=layout_id,
         )
 
     except HTTPException:
@@ -270,14 +306,33 @@ async def rewrite_resume_endpoint(request: RewriteRequest):
             job_keywords=new_score_data.get("job_keywords", []),
         )
 
-        # Step 3: Generate downloadable PDF
+        # Step 3: Generate downloadable PDF (format-preserving if layout available)
         download_id = uuid.uuid4().hex
         pdf_path = DOWNLOAD_DIR / f"{download_id}.pdf"
-        generate_resume_pdf(
-            resume_text=rewrite_result["rewritten_text"],
-            sections=rewrite_result.get("sections", {}),
-            output_path=pdf_path,
-        )
+
+        formatting_preserved = False
+        formatting_notes: list[str] = []
+
+        cached_layout = _get_cached_layout(request.layout_id) if request.layout_id else None
+
+        if cached_layout and cached_layout.formatting_preserved:
+            # Use format-preserving generation
+            _, formatting_notes = generate_format_preserved_pdf(
+                resume_text=rewrite_result["rewritten_text"],
+                sections=rewrite_result.get("sections", {}),
+                layout=cached_layout,
+                output_path=pdf_path,
+            )
+            formatting_preserved = True
+            logger.info("Generated format-preserved PDF for download %s", download_id)
+        else:
+            # Fallback to standard generation
+            generate_resume_pdf(
+                resume_text=rewrite_result["rewritten_text"],
+                sections=rewrite_result.get("sections", {}),
+                output_path=pdf_path,
+            )
+            formatting_notes.append("Original formatting not available; used standard layout")
 
         # Step 4: Build comparison response
         updated_score = new_score_data["score"]
@@ -298,6 +353,8 @@ async def rewrite_resume_endpoint(request: RewriteRequest):
                 resume_word_count=len(rewrite_result["rewritten_text"].split()),
                 job_description_word_count=len(request.job_description.split()),
             ),
+            formatting_preserved=formatting_preserved,
+            formatting_notes=formatting_notes,
             message="Resume enhanced successfully",
         )
 
