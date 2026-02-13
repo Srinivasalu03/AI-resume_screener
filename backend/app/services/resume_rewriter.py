@@ -38,7 +38,29 @@ SECTION_PATTERNS = {
         r"^(projects|key\s*projects|personal\s*projects)$",
         re.IGNORECASE,
     ),
+    "additional_details": re.compile(
+        r"^(additional\s*details|additional\s*information|extracurricular|activities"
+        r"|awards|achievements|honors|publications|references|languages"
+        r"|volunteer|interests|hobbies)$",
+        re.IGNORECASE,
+    ),
 }
+
+# Sub-heading patterns for Experience/Education sections
+_DATE_PATTERN = re.compile(
+    r"(20\d{2}|19\d{2}|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b"
+    r"|present|current|\d{1,2}/\d{2,4})",
+    re.IGNORECASE,
+)
+
+_ROLE_SIGNALS = re.compile(
+    r"\b(engineer|developer|manager|analyst|designer|intern|lead|director"
+    r"|coordinator|specialist|consultant|associate|architect|scientist"
+    r"|administrator|officer|executive|president|vp|head\s+of"
+    r"|bachelor|master|b\.?sc?|m\.?sc?|b\.?tech|m\.?tech|b\.?e|m\.?e"
+    r"|ph\.?d|mba|diploma)\b",
+    re.IGNORECASE,
+)
 
 # Action verbs for bullet enhancement
 ACTION_VERBS = [
@@ -108,6 +130,12 @@ def parse_resume_sections(text: str) -> Dict[str, str]:
     # If we only have "header" (no other sections detected), mark as unstructured
     if len(sections) <= 1 and "header" in sections:
         return {"unstructured": text}
+
+    # Add additional_details section ordering hint
+    if "additional_details" in sections:
+        # Ensure it comes after education by keeping it in the sections dict
+        # (the rewrite_resume function handles ordering)
+        pass
 
     return sections
 
@@ -181,13 +209,23 @@ def _enhance_summary(
     """
     Improve the professional summary with JD-relevant terms.
 
-    If summary is too short or empty, generates a basic one.
-    Otherwise, appends a relevance sentence.
+    ENFORCES single-paragraph output: no line breaks, no bullets.
+    The summary must be one concise paragraph aligning with the JD.
     """
     changes = []
     lines = summary_text.split("\n")
     header_line = lines[0] if lines else ""
-    body = "\n".join(lines[1:]).strip() if len(lines) > 1 else ""
+    body_lines = lines[1:] if len(lines) > 1 else []
+
+    # Collapse all body lines into a single paragraph
+    body_parts = []
+    for line in body_lines:
+        stripped = line.strip()
+        if stripped:
+            # Remove bullet prefixes
+            cleaned = re.sub(r"^[-*\u2022]\s+", "", stripped)
+            body_parts.append(cleaned)
+    body = " ".join(body_parts).strip()
 
     # Pick top relevant keywords for the summary
     relevant_kws = missing_keywords[:3] if missing_keywords else job_keywords[:3]
@@ -199,7 +237,7 @@ def _enhance_summary(
             f"Results-driven professional with hands-on experience in {kw_text}. "
             f"Committed to delivering high-quality solutions and continuous improvement."
         )
-        changes.append("Generated professional summary with job-relevant terminology")
+        changes.append("Generated professional summary as single paragraph with job-relevant terminology")
     else:
         # Existing summary — append a reinforcement sentence
         if relevant_kws:
@@ -207,9 +245,29 @@ def _enhance_summary(
             addition = f" Skilled in {kw_text} with a focus on delivering impactful results."
             body = body.rstrip(".").rstrip() + "." + addition
             changes.append(f"Enhanced summary with keywords: {kw_text}")
+        # Ensure single paragraph (no internal line breaks)
+        if "\n" in body:
+            body = " ".join(body.split())
+            changes.append("Consolidated summary into single paragraph")
 
     result = f"{header_line}\n{body}" if header_line else body
     return result, changes
+
+
+def _is_sub_heading_line(text: str) -> bool:
+    """Check if a text line is a sub-heading (role/company/degree with dates)."""
+    stripped = text.strip()
+    if not stripped or len(stripped) > 100:
+        return False
+    has_date = bool(_DATE_PATTERN.search(stripped))
+    has_role = bool(_ROLE_SIGNALS.search(stripped))
+    if has_date and has_role:
+        return True
+    if has_date and len(stripped) < 80:
+        return True
+    if has_role and len(stripped) < 60:
+        return True
+    return False
 
 
 def _enhance_bullets(
@@ -218,8 +276,10 @@ def _enhance_bullets(
     """
     Augment experience bullets with action verbs and relevant keywords.
 
-    - Adds action verbs to bullets that lack them
-    - Incorporates 1-2 missing keywords into contextually appropriate bullets
+    Enforces strict heading/body hierarchy:
+    - Sub-heading lines (role/company/duration) are NEVER modified
+    - Only bullet-point body lines are enhanced
+    - Heading and body text are never merged
     """
     changes = []
     lines = experience_text.split("\n")
@@ -235,6 +295,11 @@ def _enhance_bullets(
 
     for line in lines:
         stripped = line.strip()
+
+        # Preserve sub-heading lines (role/company/duration) unchanged
+        if _is_sub_heading_line(stripped):
+            result_lines.append(line)
+            continue
 
         # Check if this is a bullet point
         is_bullet = bool(re.match(r"^[-*\u2022]\s+", stripped))
@@ -377,10 +442,16 @@ def rewrite_resume(
             all_changes.extend(template_changes)
 
     # Reassemble sections in logical order (use template order if applied)
+    # Additional Details must always appear AFTER Education
     if template_config:
-        section_order = template_config["section_order"]
+        section_order = list(template_config["section_order"])
+        if "additional_details" not in section_order:
+            section_order.append("additional_details")
     else:
-        section_order = ["header", "summary", "skills", "experience", "projects", "education"]
+        section_order = [
+            "header", "summary", "skills", "experience", "projects",
+            "education", "additional_details",
+        ]
     ordered_parts = []
     used_sections = set()
 

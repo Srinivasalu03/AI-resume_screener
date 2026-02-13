@@ -316,7 +316,7 @@ async def rewrite_resume_endpoint(request: RewriteRequest):
         cached_layout = _get_cached_layout(request.layout_id) if request.layout_id else None
 
         if cached_layout and cached_layout.formatting_preserved:
-            # Use format-preserving generation
+            # Use section-aware format-preserving generation
             _, formatting_notes = generate_format_preserved_pdf(
                 resume_text=rewrite_result["rewritten_text"],
                 sections=rewrite_result.get("sections", {}),
@@ -324,7 +324,9 @@ async def rewrite_resume_endpoint(request: RewriteRequest):
                 output_path=pdf_path,
             )
             formatting_preserved = True
-            logger.info("Generated format-preserved PDF for download %s", download_id)
+            if cached_layout.section_structure_preserved:
+                formatting_notes.append("Section structure and heading hierarchy preserved")
+            logger.info("Generated section-aware format-preserved PDF for download %s", download_id)
         else:
             # Fallback to standard generation
             generate_resume_pdf(

@@ -64,6 +64,7 @@ class TextBlock:
     line_height: float = 5.0
     is_bullet: bool = False
     page: int = 0
+    semantic_role: str = "body"  # "section_heading", "sub_heading", "body", "bullet"
 
 
 @dataclass
@@ -81,12 +82,96 @@ class LayoutMetadata:
     header_size: float = 14.0
     section_header_size: float = 12.0
     body_size: float = 10.0
+    sub_heading_size: float = 11.0  # For role/company/degree lines
     line_spacing: float = 5.0
     section_spacing: float = 8.0
     bullet_indent: float = 10.0
     bullet_char: str = "-"
     formatting_preserved: bool = True
+    section_structure_preserved: bool = False
     formatting_notes: List[str] = field(default_factory=list)
+
+
+# Section heading patterns for intelligent detection (no hardcoded names)
+_SECTION_HEADING_PATTERNS = re.compile(
+    r"^(summary|professional\s*summary|objective|profile|about\s*me|career\s*objective"
+    r"|experience|work\s*experience|professional\s*experience|employment(?:\s*history)?"
+    r"|skills|technical\s*skills|core\s*competencies|competencies|technologies|tech\s*stack"
+    r"|education|academic|qualifications|certifications?(?:\s*(?:&|and)\s*education)?"
+    r"|projects|key\s*projects|personal\s*projects"
+    r"|additional\s*details|additional\s*information|extracurricular|activities"
+    r"|awards|achievements|honors|publications|references|languages"
+    r"|volunteer|interests|hobbies)$",
+    re.IGNORECASE,
+)
+
+# Sub-heading signals: role titles, degrees, company names with dates
+_DATE_PATTERN = re.compile(
+    r"(20\d{2}|19\d{2}|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b"
+    r"|present|current|\d{1,2}/\d{2,4})",
+    re.IGNORECASE,
+)
+
+_ROLE_SIGNALS = re.compile(
+    r"\b(engineer|developer|manager|analyst|designer|intern|lead|director"
+    r"|coordinator|specialist|consultant|associate|architect|scientist"
+    r"|administrator|officer|executive|president|vp|head\s+of"
+    r"|bachelor|master|b\.?sc?|m\.?sc?|b\.?tech|m\.?tech|b\.?e|m\.?e"
+    r"|ph\.?d|mba|diploma)\b",
+    re.IGNORECASE,
+)
+
+
+def _classify_block_role(
+    block: TextBlock,
+    body_size: float,
+    section_header_size: float,
+) -> str:
+    """
+    Classify a text block's semantic role based on font size, style, and content.
+
+    Returns one of: 'section_heading', 'sub_heading', 'body', 'bullet'
+    """
+    text = block.text.strip()
+    if not text:
+        return "body"
+
+    # Bullets are always body-level
+    if block.is_bullet:
+        return "bullet"
+
+    clean = re.sub(r"[:\-_|#*=]+", "", text).strip()
+
+    # Section headings: short, bold/larger, match known patterns
+    if len(clean) < 50 and _SECTION_HEADING_PATTERNS.match(clean):
+        return "section_heading"
+
+    # Also detect section headings by visual properties:
+    # short + significantly larger than body + bold
+    if (len(clean) < 50
+            and block.font_size >= section_header_size - 0.5
+            and block.is_bold
+            and block.font_size > body_size + 0.5):
+        return "section_heading"
+
+    # Sub-headings: lines with dates, role signals, or bold + slightly larger
+    has_date = bool(_DATE_PATTERN.search(text))
+    has_role = bool(_ROLE_SIGNALS.search(text))
+
+    if has_date and has_role:
+        return "sub_heading"
+    if has_date and block.is_bold:
+        return "sub_heading"
+    if has_role and block.is_bold and len(text) < 80:
+        return "sub_heading"
+    # Bold text that's slightly larger than body, not too long (role/company line)
+    if (block.is_bold
+            and block.font_size > body_size
+            and len(text) < 80
+            and not block.is_bullet):
+        return "sub_heading"
+
+    return "body"
 
 
 def _normalize_font_name(raw: str) -> str:
@@ -194,6 +279,42 @@ def extract_layout(pdf_path: Path) -> LayoutMetadata:
 
             if font_families:
                 layout.dominant_font = max(font_families, key=font_families.get)
+
+            # Classify semantic roles for all blocks
+            for block in layout.blocks:
+                block.semantic_role = _classify_block_role(
+                    block, layout.body_size, layout.section_header_size,
+                )
+
+            # Compute sub_heading_size from detected sub-headings
+            sub_sizes = [b.font_size for b in layout.blocks if b.semantic_role == "sub_heading"]
+            if sub_sizes:
+                size_counts: Dict[float, int] = {}
+                for s in sub_sizes:
+                    size_counts[s] = size_counts.get(s, 0) + 1
+                layout.sub_heading_size = max(size_counts, key=size_counts.get)
+            else:
+                # Default: midpoint between body and section header
+                layout.sub_heading_size = round(
+                    (layout.body_size + layout.section_header_size) / 2, 1
+                )
+
+            has_section_headings = any(
+                b.semantic_role == "section_heading" for b in layout.blocks
+            )
+            has_sub_headings = any(
+                b.semantic_role == "sub_heading" for b in layout.blocks
+            )
+            layout.section_structure_preserved = has_section_headings
+
+            if has_section_headings:
+                layout.formatting_notes.append(
+                    f"Detected section structure with {sum(1 for b in layout.blocks if b.semantic_role == 'section_heading')} headings"
+                )
+            if has_sub_headings:
+                layout.formatting_notes.append(
+                    f"Detected {sum(1 for b in layout.blocks if b.semantic_role == 'sub_heading')} sub-headings (roles/degrees)"
+                )
 
             # Detect bullet character
             for block in layout.blocks:
@@ -306,6 +427,21 @@ def _safe_text(text: str) -> str:
     return text.encode("latin-1", errors="replace").decode("latin-1")
 
 
+def _is_sub_heading_line(text: str) -> bool:
+    """Check if a text line looks like a sub-heading (role/company/degree)."""
+    if len(text) > 100 or not text.strip():
+        return False
+    has_date = bool(_DATE_PATTERN.search(text))
+    has_role = bool(_ROLE_SIGNALS.search(text))
+    if has_date and has_role:
+        return True
+    if has_date and len(text) < 80:
+        return True
+    if has_role and len(text) < 60:
+        return True
+    return False
+
+
 def generate_format_preserved_pdf(
     resume_text: str,
     sections: Optional[Dict[str, str]],
@@ -313,10 +449,12 @@ def generate_format_preserved_pdf(
     output_path: Path,
 ) -> Tuple[Path, List[str]]:
     """
-    Generate a PDF that preserves the original resume's formatting.
+    Generate a PDF that preserves the original resume's formatting
+    with section-aware heading/body differentiation.
 
     Uses the layout metadata to match font sizes, spacing, and bullet
-    styles from the original document.
+    styles from the original document. Enforces strict heading > sub-heading > body
+    font size hierarchy.
 
     Returns (output_path, list_of_formatting_notes).
     """
@@ -334,75 +472,90 @@ def generate_format_preserved_pdf(
     body_size = layout.body_size
     header_size = layout.header_size
     section_size = layout.section_header_size
+    sub_heading_size = layout.sub_heading_size
     line_h = max(layout.line_spacing * 0.3528, 4)  # Convert pt to mm
     section_gap = max(layout.section_spacing * 0.3528, 6)
     bullet = layout.bullet_char if layout.bullet_char in ("-", "*") else "-"
 
-    notes.append(f"Body: {font} {body_size}pt, line height: {line_h:.1f}mm")
+    # Enforce font size hierarchy: section_header > sub_heading > body
+    if sub_heading_size <= body_size:
+        sub_heading_size = body_size + 1
+    if section_size <= sub_heading_size:
+        section_size = sub_heading_size + 1
+
+    notes.append(
+        f"Font hierarchy: section {section_size}pt > sub-heading {sub_heading_size}pt > body {body_size}pt"
+    )
+
+    sizing = _FontSizing(
+        font=font,
+        header_size=header_size,
+        section_size=section_size,
+        sub_heading_size=sub_heading_size,
+        body_size=body_size,
+        line_h=line_h,
+        section_gap=section_gap,
+        bullet=bullet,
+    )
 
     if sections and len(sections) > 1:
-        _render_preserved_structured(
-            pdf, sections, font, header_size, section_size, body_size,
-            line_h, section_gap, bullet,
-        )
+        _render_preserved_structured(pdf, sections, sizing)
     else:
-        _render_preserved_plain(
-            pdf, resume_text, font, header_size, section_size, body_size,
-            line_h, section_gap, bullet,
-        )
+        _render_preserved_plain(pdf, resume_text, sizing)
 
-    notes.append("Formatting preserved from original resume")
+    notes.append("Formatting and section structure preserved from original resume")
     pdf.output(str(output_path))
-    logger.info("Generated format-preserved PDF: %s", output_path)
+    logger.info("Generated section-aware format-preserved PDF: %s", output_path)
     return output_path, notes
+
+
+@dataclass
+class _FontSizing:
+    """Bundle of font sizing parameters to reduce function argument count."""
+    font: str
+    header_size: float
+    section_size: float
+    sub_heading_size: float
+    body_size: float
+    line_h: float
+    section_gap: float
+    bullet: str
 
 
 def _render_preserved_structured(
     pdf: FormatPreservingPDF,
     sections: Dict[str, str],
-    font: str,
-    header_size: float,
-    section_size: float,
-    body_size: float,
-    line_h: float,
-    section_gap: float,
-    bullet: str,
+    sz: _FontSizing,
 ) -> None:
-    """Render structured resume with preserved formatting."""
-    section_order = ["header", "summary", "skills", "experience", "projects", "education"]
+    """Render structured resume with section-aware formatting."""
+    section_order = [
+        "header", "summary", "skills", "experience", "projects", "education",
+    ]
     rendered = set()
 
     for name in section_order:
         if name in sections:
-            _render_preserved_section(
-                pdf, name, sections[name], font, header_size,
-                section_size, body_size, line_h, section_gap, bullet,
-            )
+            _render_preserved_section(pdf, name, sections[name], sz)
             rendered.add(name)
 
+    # Remaining sections (e.g. "additional details") come after education
     for name, content in sections.items():
         if name not in rendered and name != "unstructured":
-            _render_preserved_section(
-                pdf, name, content, font, header_size,
-                section_size, body_size, line_h, section_gap, bullet,
-            )
+            # Insert extra spacing before additional sections
+            pdf.ln(sz.section_gap * 0.6)
+            _render_preserved_section(pdf, name, content, sz)
 
 
 def _render_preserved_section(
     pdf: FormatPreservingPDF,
     name: str,
     content: str,
-    font: str,
-    header_size: float,
-    section_size: float,
-    body_size: float,
-    line_h: float,
-    section_gap: float,
-    bullet: str,
+    sz: _FontSizing,
 ) -> None:
-    """Render a single section with format-preserved styling."""
+    """Render a single section with strict heading/body differentiation."""
     lines = content.split("\n")
 
+    # ── Header (name + contact info) ──
     if name == "header":
         first_rendered = False
         for line in lines:
@@ -410,103 +563,211 @@ def _render_preserved_section(
             if not stripped:
                 continue
             if not first_rendered:
-                pdf.set_font(font, "B", header_size)
+                pdf.set_font(sz.font, "B", sz.header_size)
                 pdf.set_text_color(30, 30, 30)
-                pdf.multi_cell(0, line_h * 1.5, _safe_text(stripped),
+                pdf.multi_cell(0, sz.line_h * 1.5, _safe_text(stripped),
                                new_x="LMARGIN", new_y="NEXT")
                 first_rendered = True
             else:
-                pdf.set_font(font, "", max(body_size - 1, 8))
+                pdf.set_font(sz.font, "", max(sz.body_size - 1, 8))
                 pdf.set_text_color(80, 80, 80)
-                pdf.multi_cell(0, line_h, _safe_text(stripped),
+                pdf.multi_cell(0, sz.line_h, _safe_text(stripped),
                                new_x="LMARGIN", new_y="NEXT")
-        pdf.ln(section_gap * 0.5)
+        pdf.ln(sz.section_gap * 0.5)
         return
 
-    # Section header
-    section_headers = {"summary", "experience", "skills", "education", "projects"}
-    if name in section_headers:
-        pdf.ln(section_gap * 0.4)
-        pdf.set_font(font, "B", section_size)
+    # ── Section heading ──
+    # Retain original heading text from the first line
+    known_sections = {
+        "summary", "experience", "skills", "education", "projects",
+        "additional_details", "additional details",
+    }
+    if name.lower().replace("_", " ") in {s.replace("_", " ") for s in known_sections} or name in known_sections:
+        pdf.ln(sz.section_gap * 0.4)
+
+        # Use original heading text (first line) instead of generating one
+        original_heading = lines[0].strip() if lines else name.replace("_", " ").title()
+        clean = re.sub(r"[:\-_|#*=]+", "", original_heading).strip()
+        if clean and len(clean) < 50:
+            heading_text = original_heading.strip().rstrip(":").rstrip("-").strip()
+        else:
+            heading_text = name.replace("_", " ").title()
+
+        pdf.set_font(sz.font, "B", sz.section_size)
         pdf.set_text_color(30, 30, 80)
-        title = name.replace("_", " ").title()
-        pdf.multi_cell(0, line_h * 1.2, title, new_x="LMARGIN", new_y="NEXT")
+        pdf.multi_cell(0, sz.line_h * 1.2, _safe_text(heading_text),
+                       new_x="LMARGIN", new_y="NEXT")
         # Horizontal rule
         pdf.set_draw_color(30, 30, 80)
         pdf.set_line_width(0.3)
         y = pdf.get_y()
         pdf.line(pdf.l_margin, y, pdf.w - pdf.r_margin, y)
-        pdf.ln(section_gap * 0.3)
+        pdf.ln(sz.section_gap * 0.3)
 
-    # Body lines (skip header line)
+    # ── Body lines (skip header line) ──
     body_lines = list(lines)
     if body_lines:
         first_clean = re.sub(r"[:\-_|#*=]+", "", body_lines[0].strip()).strip()
-        if len(first_clean) < 40:
+        if len(first_clean) < 50:
             body_lines = body_lines[1:]
 
-    for line in body_lines:
+    # ── Section-specific rendering ──
+    if name == "summary":
+        _render_summary_body(pdf, body_lines, sz)
+    elif name in ("experience", "projects", "education"):
+        _render_hierarchical_body(pdf, body_lines, sz)
+    else:
+        _render_flat_body(pdf, body_lines, sz)
+
+    pdf.ln(sz.line_h * 0.3)
+
+
+def _render_summary_body(
+    pdf: FormatPreservingPDF,
+    lines: List[str],
+    sz: _FontSizing,
+) -> None:
+    """Render summary as a single paragraph - no bullets, no line breaks."""
+    # Combine all non-empty lines into one paragraph
+    parts = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped:
+            # Remove bullet prefixes if accidentally present
+            cleaned = re.sub(r"^[-*\u2022]\s+", "", stripped)
+            parts.append(cleaned)
+    paragraph = " ".join(parts)
+
+    if paragraph:
+        pdf.set_font(sz.font, "", sz.body_size)
+        pdf.set_text_color(50, 50, 50)
+        pdf.multi_cell(0, sz.line_h, _safe_text(paragraph),
+                       new_x="LMARGIN", new_y="NEXT")
+
+
+def _render_hierarchical_body(
+    pdf: FormatPreservingPDF,
+    lines: List[str],
+    sz: _FontSizing,
+) -> None:
+    """
+    Render Experience/Education/Projects with strict heading/body hierarchy.
+
+    Sub-headings (role/company/degree lines) are rendered bold at sub_heading_size.
+    Body content (bullets, descriptions) is rendered at body_size.
+    """
+    for line in lines:
         stripped = line.strip()
         if not stripped:
-            pdf.ln(line_h * 0.4)
+            pdf.ln(sz.line_h * 0.4)
+            continue
+
+        is_bullet = bool(re.match(r"^[-*\u2022]\s+", stripped))
+
+        if is_bullet:
+            bullet_content = re.sub(r"^[-*\u2022]\s+", "", stripped)
+            pdf.set_font(sz.font, "", sz.body_size)
+            pdf.set_text_color(50, 50, 50)
+            pdf.multi_cell(0, sz.line_h,
+                           f"   {sz.bullet} " + _safe_text(bullet_content),
+                           new_x="LMARGIN", new_y="NEXT")
+        elif _is_sub_heading_line(stripped):
+            # Role / Company / Duration or Degree / Institution / Year
+            pdf.ln(sz.line_h * 0.2)
+            pdf.set_font(sz.font, "B", sz.sub_heading_size)
+            pdf.set_text_color(40, 40, 60)
+            pdf.multi_cell(0, sz.line_h * 1.1, _safe_text(stripped),
+                           new_x="LMARGIN", new_y="NEXT")
+        else:
+            # Regular body text
+            pdf.set_font(sz.font, "", sz.body_size)
+            pdf.set_text_color(50, 50, 50)
+            pdf.multi_cell(0, sz.line_h, _safe_text(stripped),
+                           new_x="LMARGIN", new_y="NEXT")
+
+
+def _render_flat_body(
+    pdf: FormatPreservingPDF,
+    lines: List[str],
+    sz: _FontSizing,
+) -> None:
+    """Render body lines for sections without sub-heading hierarchy (skills, etc.)."""
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            pdf.ln(sz.line_h * 0.4)
             continue
 
         if re.match(r"^[-*\u2022]\s+", stripped):
             bullet_content = re.sub(r"^[-*\u2022]\s+", "", stripped)
-            pdf.set_font(font, "", body_size)
+            pdf.set_font(sz.font, "", sz.body_size)
             pdf.set_text_color(50, 50, 50)
-            pdf.multi_cell(0, line_h, f"   {bullet} " + _safe_text(bullet_content),
+            pdf.multi_cell(0, sz.line_h,
+                           f"   {sz.bullet} " + _safe_text(bullet_content),
                            new_x="LMARGIN", new_y="NEXT")
         else:
-            pdf.set_font(font, "", body_size)
+            pdf.set_font(sz.font, "", sz.body_size)
             pdf.set_text_color(50, 50, 50)
-            pdf.multi_cell(0, line_h, _safe_text(stripped),
+            pdf.multi_cell(0, sz.line_h, _safe_text(stripped),
                            new_x="LMARGIN", new_y="NEXT")
-
-    pdf.ln(line_h * 0.3)
 
 
 def _render_preserved_plain(
     pdf: FormatPreservingPDF,
     text: str,
-    font: str,
-    header_size: float,
-    section_size: float,
-    body_size: float,
-    line_h: float,
-    section_gap: float,
-    bullet: str,
+    sz: _FontSizing,
 ) -> None:
-    """Render plain text with preserved formatting attributes."""
-    pdf.set_font(font, "", body_size)
+    """Render plain text with section-aware formatting detection."""
+    pdf.set_font(sz.font, "", sz.body_size)
     pdf.set_text_color(50, 50, 50)
 
     for line in text.split("\n"):
         stripped = line.strip()
         if not stripped:
-            pdf.ln(line_h * 0.5)
+            pdf.ln(sz.line_h * 0.5)
             continue
 
-        # Detect headers
-        if len(stripped) < 40 and stripped == stripped.upper() and len(stripped) > 2:
-            pdf.ln(section_gap * 0.4)
-            pdf.set_font(font, "B", section_size)
+        clean = re.sub(r"[:\-_|#*=]+", "", stripped).strip()
+
+        # Detect section headings
+        if len(clean) < 50 and _SECTION_HEADING_PATTERNS.match(clean):
+            pdf.ln(sz.section_gap * 0.4)
+            pdf.set_font(sz.font, "B", sz.section_size)
             pdf.set_text_color(30, 30, 80)
-            pdf.multi_cell(0, line_h * 1.2, stripped.title(),
+            pdf.multi_cell(0, sz.line_h * 1.2, _safe_text(stripped),
                            new_x="LMARGIN", new_y="NEXT")
             pdf.set_draw_color(30, 30, 80)
             pdf.set_line_width(0.3)
             y = pdf.get_y()
             pdf.line(pdf.l_margin, y, pdf.w - pdf.r_margin, y)
-            pdf.ln(section_gap * 0.3)
+            pdf.ln(sz.section_gap * 0.3)
+        elif len(stripped) < 40 and stripped == stripped.upper() and len(stripped) > 2:
+            # ALL CAPS short line → likely section heading
+            pdf.ln(sz.section_gap * 0.4)
+            pdf.set_font(sz.font, "B", sz.section_size)
+            pdf.set_text_color(30, 30, 80)
+            pdf.multi_cell(0, sz.line_h * 1.2, stripped.title(),
+                           new_x="LMARGIN", new_y="NEXT")
+            pdf.set_draw_color(30, 30, 80)
+            pdf.set_line_width(0.3)
+            y = pdf.get_y()
+            pdf.line(pdf.l_margin, y, pdf.w - pdf.r_margin, y)
+            pdf.ln(sz.section_gap * 0.3)
+        elif _is_sub_heading_line(stripped):
+            pdf.ln(sz.line_h * 0.2)
+            pdf.set_font(sz.font, "B", sz.sub_heading_size)
+            pdf.set_text_color(40, 40, 60)
+            pdf.multi_cell(0, sz.line_h * 1.1, _safe_text(stripped),
+                           new_x="LMARGIN", new_y="NEXT")
         elif re.match(r"^[-*\u2022]\s+", stripped):
             bullet_content = re.sub(r"^[-*\u2022]\s+", "", stripped)
-            pdf.set_font(font, "", body_size)
+            pdf.set_font(sz.font, "", sz.body_size)
             pdf.set_text_color(50, 50, 50)
-            pdf.multi_cell(0, line_h, f"   {bullet} " + _safe_text(bullet_content),
+            pdf.multi_cell(0, sz.line_h,
+                           f"   {sz.bullet} " + _safe_text(bullet_content),
                            new_x="LMARGIN", new_y="NEXT")
         else:
-            pdf.set_font(font, "", body_size)
+            pdf.set_font(sz.font, "", sz.body_size)
             pdf.set_text_color(50, 50, 50)
-            pdf.multi_cell(0, line_h, _safe_text(stripped),
+            pdf.multi_cell(0, sz.line_h, _safe_text(stripped),
                            new_x="LMARGIN", new_y="NEXT")

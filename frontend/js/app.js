@@ -384,7 +384,12 @@ function displayComparison(data) {
 
     if (data.formatting_preserved) {
         formatIndicator.hidden = false;
-        formatTitle.textContent = "Original Formatting Preserved";
+        // Check if section structure was also preserved
+        const hasStructure = data.formatting_notes &&
+            data.formatting_notes.some(n => n.toLowerCase().includes("section structure"));
+        formatTitle.textContent = hasStructure
+            ? "Formatting and Section Structure Preserved"
+            : "Original Formatting Preserved";
         formatIndicator.classList.remove("format-fallback");
         formatIndicator.classList.add("format-preserved");
     } else {
